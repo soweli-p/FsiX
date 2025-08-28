@@ -66,7 +66,7 @@ dotnet tool install --global fsix
 ```
 Or, if it uses Asp net core sdk:
 ```
-dotnet tool install --global fsix-web
+dotnet tool install --global fsix.web
 ```
 
 Then, just run
