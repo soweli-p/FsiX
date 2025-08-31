@@ -7,6 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Args.fs"/>
         <Compile Include="Utils.fs"/>
         <Compile Include="ProjectLoading.fs"/>
         <Compile Include="Configuration.fs"/>
@@ -36,6 +37,7 @@
         <PackageReference Include="Ionide.ProjInfo" Version="0.67.0"/>
         <PackageReference Include="Ionide.ProjInfo.FCS" Version="0.67.0"/>
         <PackageReference Include="Fantomas.Core" Version="7.0.1"/>
+        <PackageReference Include="Argu" Version="6.2.5"/>
     </ItemGroup>
 
 </Project>

@@ -19,23 +19,24 @@ type FsiCallBacks(app: AppState) =
             return app.GetCompletions(text, caret, typedWord) :> IReadOnlyList<CompletionItem>
         }
 
-let main useAllRefs () =
+let main useAsp args () =
     task {
+        let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
         let! app =
-            let sln = loadSolution <| Directory.GetCurrentDirectory()
-            AppState.mkAppState useAllRefs sln
+            let sln = loadSolution parsedArgs
+            AppState.mkAppState useAsp sln
+        let config = app.GetPromptConfiguration()
 
         let prompt =
             PrettyPrompt.Prompt(
                 persistentHistoryFilepath = "./.fsix_history",
                 callbacks = FsiCallBacks app,
-                configuration = app.GetPromptConfiguration()
+                configuration = config
             )
         app.OutStream.Enable()
 
         while true do
             try
-                
                 let! response = prompt.ReadLineAsync()
                 if response.IsSuccess && response.Text <> "" then
                     match response.Text[0] with

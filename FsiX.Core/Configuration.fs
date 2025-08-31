@@ -56,13 +56,3 @@ let loadGlobalConfig () =
             do! File.WriteAllTextAsync(configPath, defaultConfig)
             return defaultConfig
     }
-
-let loadLocalConfig () =
-    task {
-        let localPath = "./.repl.fsx"
-
-        if File.Exists localPath then
-            return! File.ReadAllTextAsync localPath |>> Some
-        else
-            return None
-    }

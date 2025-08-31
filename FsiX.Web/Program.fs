@@ -1,2 +1,6 @@
 ﻿// For more information see https://aka.ms/fsharp-console-apps
-FsiX.EntryPoint.main true () |> _.GetAwaiter() |> _.GetResult()
+
+[<EntryPoint>]
+let main args =
+  FsiX.EntryPoint.main true args () |> _.GetAwaiter() |> _.GetResult()
+  0

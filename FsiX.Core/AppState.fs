@@ -4,6 +4,7 @@ open System
 open System.IO
 
 open System.Threading
+open System.Threading.Tasks
 open FSharp.Compiler.Interactive.Shell
 open FSharpPlus
 open FsiX.Features
@@ -41,7 +42,7 @@ type BufferedStdoutWriter() =
 
 
 open FsiX.Features.Reloading
-type AppState private (sln: Solution, session: FsiEvaluationSession, globalConfig, localConfig, outStream) =
+type AppState private (sln: Solution, session: FsiEvaluationSession, globalConfig, localConfigs, outStream) =
     let mutable reloadingState = mkReloadingState sln
     member _.Solution = sln
     member _.InteractiveChecker = session.InteractiveChecker
@@ -58,11 +59,11 @@ type AppState private (sln: Solution, session: FsiEvaluationSession, globalConfi
     member _.OutStream = outStream
 
     member this.GetPromptConfiguration() =
+        printfn "Loading configuration..."
         this.EvalCode(globalConfig, CancellationToken.None)
 
-        match localConfig with
-        | None -> ()
-        | Some localConfig -> this.EvalCode(localConfig, CancellationToken.None)
+        for cfg in localConfigs do
+          this.EvalCode(cfg, CancellationToken.None)
 
         let PromptConfigurationValue =
             session.GetBoundValues()
@@ -75,46 +76,17 @@ type AppState private (sln: Solution, session: FsiEvaluationSession, globalConfi
     member _.GetCompletions(text, caret, word) =
         AutoCompletion.getCompletions session text caret word
 
-    static member mkAppState useAllRefs sln =
-        let solutionToFsiArgs (sln: Solution) =
-            let projectDlls =
-              sln.Projects 
-              |> Seq.map _.TargetPath 
-              |> Seq.rev
-              |> Seq.toList
-            if Seq.exists (File.Exists >> not) projectDlls then
-              Logging.logError "Pleaase build your project before running REPL"
-              Environment.Exit 1
-
-            let projectDlls =
-              projectDlls
-              |> Seq.map (sprintf "-r:%s")
-            let dependencyDlls =
-              if useAllRefs then
-                  sln.Projects 
-                  |> Seq.collect _.OtherOptions
-                  |> Seq.filter (fun s -> s.StartsWith "-r" && s.EndsWith ".dll")
-                  |> Seq.filter (fun s -> not <| s.Contains "System")
-              else Seq.empty
-
-            let nugets =
-                sln.Projects
-                |> Seq.collect _.PackageReferences
-                |> Seq.map _.FullPath
-                |> Seq.map (sprintf "-r:%s")
-
-            [| "fsi"; 
-               yield!
-                  projectDlls
-                  |> Seq.append nugets
-                  |> Seq.append dependencyDlls
-                  |> Seq.distinct
-            |]
+    static member mkAppState useAsp sln =
         task {
+            printfn "Welcome to FsiX!"
+            printfn "Loading these projects: "
+            for project in sln.Projects do
+              printfn "%s" project.ProjectFileName
             let globalConfigTask = Configuration.loadGlobalConfig ()
-            let localConfigTask = Configuration.loadLocalConfig ()
+            let localConfigTasks = sln.StartupFiles |> Seq.map File.ReadAllTextAsync |> Task.WhenAll
             let fsiConfig = FsiEvaluationSession.GetDefaultConfiguration()
-            let args = solutionToFsiArgs sln
+            let args = solutionToFsiArgs useAsp sln
+
 
             let out = new BufferedStdoutWriter()
             let fsiSession =
@@ -127,6 +99,6 @@ type AppState private (sln: Solution, session: FsiEvaluationSession, globalConfi
                     collectible = true
                 )
               
-            let! globalConfig, localConfig = Task.map2 tuple2 globalConfigTask localConfigTask
-            return AppState(sln, fsiSession, globalConfig, localConfig, out)
+            let! globalConfig, localConfigs = Task.map2 tuple2 globalConfigTask localConfigTasks
+            return AppState(sln, fsiSession, globalConfig, localConfigs, out)
         }
