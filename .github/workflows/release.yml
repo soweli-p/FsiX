@@ -1,0 +1,36 @@
+name: release
+
+on:
+  push:
+    tags:
+    - "v[0-9]+.*"
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v5
+    
+    - name: Install Dotnet
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: |
+          '8.0.x'
+          '9.0.x'
+      
+    - name: Dotnet Installation Info
+      run: dotnet --info
+      
+    - name: Pack
+      run: dotnet pack -c Release /p:ContinuousIntegrationBuild=true
+      
+    # publish to nuget
+    - name: Publish
+      run: |
+        pwd
+        cd FsiX/nupkg
+        ls
+        #dotnet nuget push FsiX.*.nupkg --api-key=${{ secrets.NUGET_TOKEN }} --source https://api.nuget.org/v3/index.json
+      shell: bash
