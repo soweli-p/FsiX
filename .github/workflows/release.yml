@@ -31,6 +31,6 @@ jobs:
       run: |
         cd FsiX/nupkg
         dotnet nuget push FsiX.*.nupkg --api-key=${{ secrets.NUGET_TOKEN }} --source https://api.nuget.org/v3/index.json
-        cd ../FsiX.Web/nupkg
+        cd ../../FsiX.Web/nupkg
         dotnet nuget push FsiX.Web.*.nupkg --api-key=${{ secrets.NUGET_TOKEN }} --source https://api.nuget.org/v3/index.json
       shell: bash
