@@ -36,7 +36,6 @@ module OpenDirective =
           | SynOpenDeclTarget.Type(typeName = t) -> None //todo
         | _ -> None
       runOpen l :: List.choose chooseFn codeLines
-    //todo add st to middleware and check if file was already opened
     let hasOpenedFile fileName = 
       match st.Custom.TryFind openedFileKey with
       | None -> false
