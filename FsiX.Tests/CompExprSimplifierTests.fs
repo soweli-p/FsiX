@@ -2,7 +2,7 @@ module FsiX.Tests.CompExprSimplifierTests
 
 open Expecto
 
-open FsiX.Features.ComputationExpressionSimplifier
+open FsiX.Middleware.ComputationExpression
 
 let isCompExpr =
     parse

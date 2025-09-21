@@ -1,4 +1,4 @@
-module FsiX.Features.Reloading
+module FsiX.Middleware.HotReloading
 open System
 open System.Reflection
 

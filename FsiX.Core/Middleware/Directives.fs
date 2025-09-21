@@ -1,4 +1,4 @@
-module FsiX.Features.DirectiveProcessor
+module FsiX.Middleware.Directives
 
 #nowarn "57"
 

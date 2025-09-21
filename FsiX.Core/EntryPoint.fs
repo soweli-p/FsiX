@@ -4,6 +4,7 @@ open System.Collections.Generic
 open System.IO
 
 open FsiX.Features
+open FsiX.Middleware
 open FsiX.ProjectLoading
 open FsiX.AppState
 open PrettyPrompt.Completion
@@ -28,9 +29,9 @@ let main useAsp args () =
             let sln = loadSolution parsedArgs
             AppState.mkAppStateActor useAsp sln
         let middleware = [
-          DirectiveProcessor.viBindMiddleware
-          DirectiveProcessor.OpenDirective.openDirectiveMiddleware
-          ComputationExpressionMiddleware.compExprMiddleware
+          Directives.viBindMiddleware
+          Directives.OpenDirective.openDirectiveMiddleware
+          ComputationExpression.compExprMiddleware
         ]
         appActor.Post(AddMiddleware middleware)
 

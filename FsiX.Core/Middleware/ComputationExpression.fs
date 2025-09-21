@@ -1,4 +1,4 @@
-module FsiX.Features.ComputationExpressionMiddleware
+module FsiX.Middleware.ComputationExpression
 
 open Fantomas.Core.SyntaxOak
 open Fantomas.Core
