@@ -9,42 +9,47 @@ open FsiX.AppState
 open PrettyPrompt.Completion
 
 
-type FsiCallBacks(app: AppState) =
+type FsiCallBacks(app: MailboxProcessor<AppState.Command>) =
     inherit PrettyPrompt.PromptCallbacks()
 
     override _.ShouldOpenCompletionWindowAsync (text: string, caret: int, keyPress: PrettyPrompt.Consoles.KeyPress, cancellationToken: System.Threading.CancellationToken): System.Threading.Tasks.Task<bool> = task { return true }
     override _.GetCompletionItemsAsync(text, caret, spanToBeReplaced, _) =
         task {
             let typedWord = text.Substring(spanToBeReplaced.Start, spanToBeReplaced.Length)
-            return app.GetCompletions(text, caret, typedWord) :> IReadOnlyList<CompletionItem>
+            return 
+              app.PostAndReply(fun r -> Autocomplete(text, caret, typedWord, r))
+              :> IReadOnlyList<CompletionItem>
         }
 
 let main useAsp args () =
     task {
         let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
-        let! app =
+        let appActor =
             let sln = loadSolution parsedArgs
-            AppState.mkAppState useAsp sln
-        let config = app.GetPromptConfiguration()
+            AppState.mkAppStateActor useAsp sln
+        let middleware = [
+          DirectiveProcessor.viBindMiddleware
+          DirectiveProcessor.OpenDirective.openDirectiveMiddleware
+          ComputationExpressionMiddleware.compExprMiddleware
+        ]
+        appActor.Post(AddMiddleware middleware)
+
+        let config = appActor.PostAndReply GetConfiguration
 
         let prompt =
             PrettyPrompt.Prompt(
                 persistentHistoryFilepath = "./.fsix_history",
-                callbacks = FsiCallBacks app,
+                callbacks = FsiCallBacks appActor,
                 configuration = config
             )
-        app.OutStream.Enable()
-
         while true do
             try
-                let! response = prompt.ReadLineAsync()
-                if response.IsSuccess && response.Text <> "" then
-                    match response.Text[0] with
-                    | ':'
-                    | '#' -> do! DirectiveProcessor.runAnyDirective response.Text app response.CancellationToken
-                    | _ ->
-                        let! code = ComputationExpressionSimplifier.rewriteCompExpr response.Text
-                        app.EvalCode(code, response.CancellationToken)
+                let! userLine = prompt.ReadLineAsync()
+                if userLine.IsSuccess then
+                  let request = {Code = userLine.Text; Args = Map ["reload", "" ]} 
+                  let response = appActor.PostAndReply(fun r -> Command.Eval(request, userLine.CancellationToken, r))
+                  for m in response.Metadata.Values do
+                    Utils.Logging.logInfo m
             with _ -> ()
 
     }

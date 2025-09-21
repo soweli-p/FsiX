@@ -1,4 +1,4 @@
-module FsiX.Features.ComputationExpressionSimplifier
+module FsiX.Features.ComputationExpressionMiddleware
 
 open Fantomas.Core.SyntaxOak
 open Fantomas.Core
@@ -191,3 +191,6 @@ let rewriteCompExpr code =
                     logCode code
                     return code
     }
+let compExprMiddleware next (request: FsiX.AppState.EvalRequest, st) =
+  let rewritten = rewriteCompExpr request.Code |> Async.RunSynchronously
+  next ({request with Code = rewritten}, st)

@@ -11,11 +11,11 @@
         <Compile Include="Utils.fs"/>
         <Compile Include="ProjectLoading.fs"/>
         <Compile Include="Configuration.fs"/>
-        <Compile Include="Features\Reloading.fs" />
-        <Compile Include="Features\AutoCompletion.fs"/>
+        <Compile Include="AutoCompletion.fs" />
         <Compile Include="AppState.fs"/>
-        <Compile Include="Features\ComputationExpressionSimplifier.fs"/>
-        <Compile Include="Features\DirectiveProcessor.fs"/>
+        <Compile Include="Middleware\ComputationExpression.fs" />
+        <Compile Include="Middleware\Directives.fs" />
+        <Compile Include="Middleware\HotReloading.fs" />
         <Compile Include="EntryPoint.fs" />
     </ItemGroup>
 
