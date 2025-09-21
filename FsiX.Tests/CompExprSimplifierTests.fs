@@ -10,7 +10,7 @@ let isCompExpr =
     >> Option.map (fun res -> res.tree |> isCompExpr)
     >> Option.defaultValue false
 
-let rewriteExpr = rewriteCompExpr >> Async.RunSynchronously
+let rewriteExpr = rewriteCompExpr >> Async.RunSynchronously >> _.Replace("\r\n", "\n")
 
 
 [<Tests>]
