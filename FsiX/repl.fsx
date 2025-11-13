@@ -24,6 +24,9 @@ type Task<'t> with
 
 type Task with
     member x.Run() = x.GetAwaiter().GetResult()
+   
+let mutable _fsiXHotReload = true
+let mutable _fsiXCompExpr = true
 
 open PrettyPrompt
 open PrettyPrompt.Consoles

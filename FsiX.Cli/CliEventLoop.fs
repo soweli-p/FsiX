@@ -30,10 +30,6 @@ type FsiCallBacks(app: MailboxProcessor<AppState.Command>) =
               :> IReadOnlyList<CompletionItem>
         }
 
-//todo get args from config some flags like FsiXFlags.enableHotReload <- true
-//will work only for cli
-let cliDefaultArgsMiddleware next (request, st) =
-    next (request, st)
 let runCliEventLoop useAsp args () =
     task {
         let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
@@ -41,7 +37,6 @@ let runCliEventLoop useAsp args () =
             let sln = loadSolution parsedArgs
             AppState.mkAppStateActor (CliLogger()) useAsp sln
         let middleware = [
-          cliDefaultArgsMiddleware
           Directives.viBindMiddleware
           Directives.OpenDirective.openDirectiveMiddleware
           ComputationExpression.compExprMiddleware
@@ -61,7 +56,7 @@ let runCliEventLoop useAsp args () =
             try
                 let! userLine = prompt.ReadLineAsync()
                 if userLine.IsSuccess then
-                  let request = {Code = userLine.Text; Args = Map ["hotReload", true ]} 
+                  let request = {Code = userLine.Text; Args = Map.empty } 
                   let response = appActor.PostAndReply(fun r -> Command.Eval(request, userLine.CancellationToken, r))
                   for d in response.Diagnostics do
                       match d.Severity with

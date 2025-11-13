@@ -193,6 +193,18 @@ let rewriteCompExpr (logger: ILogger) code =
                     logCode code
                     return code
     }
-let compExprMiddleware next (request, st) =
-  let rewritten = rewriteCompExpr st.Logger request.Code |> Async.RunSynchronously
-  next ({request with Code = rewritten}, st)
+let compExprMiddleware next (request, st: AppState) =
+  let compExprFlagEnabled =
+    match st.Session.TryFindBoundValue "_fsiXCompExpr" with
+    | Some fsiBoundValue when fsiBoundValue.Value.ReflectionValue = true -> true
+    | _ -> false
+  let shouldRunCompExpr (m: Map<string, obj>) =
+    match compExprFlagEnabled, Map.tryFind "simplifyCompExpression" m with
+    | _, Some v when v = true -> true
+    | true, None -> true
+    | _ -> false
+  match request with
+  | {Args = m} when shouldRunCompExpr m ->
+      let rewritten = rewriteCompExpr st.Logger request.Code |> Async.RunSynchronously
+      next ({request with Code = rewritten}, st)
+  | _ -> next (request, st)

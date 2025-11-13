@@ -11,7 +11,6 @@ open FsiX.Utils
 
 module OpenDirective =
   let openedFileKey = "openedFiles"
-  let openDirectiveMetadata = "openDirectiveMetadata"
   type OpenedFiles = string Set
   let openDirectiveMiddleware next (request, st) =
     let openDirectiveLines fileToOpen =

@@ -125,9 +125,19 @@ let getOpenModules replCode st =
     |> Seq.toList
   {st with LastOpenModules = (modules @ st.LastOpenModules) |> List.distinct}
   
-let hotReloadingMiddleware next (request, st) = 
+let hotReloadingMiddleware next (request, st: AppState) =
+  let hotReloadFlagEnabled =
+    match st.Session.TryFindBoundValue "_fsiXHotReload" with
+    | Some fsiBoundValue when fsiBoundValue.Value.ReflectionValue = true -> true
+    | _ -> false
+  let shouldRunHotReload (m: Map<string, obj>) =
+    match hotReloadFlagEnabled, Map.tryFind "hotReload" m with
+    | _, Some v when v = true -> true
+    | true, None -> true
+    | _ -> false
+    
   match request with
-  | {Args = m} when m.ContainsKey "hotReload" && m["hotReload"] = true ->
+  | {Args = m} when shouldRunHotReload m ->
       let response, st = next (request, st)
       if response.Error.IsSome then response, st
       else
