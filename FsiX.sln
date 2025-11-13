@@ -8,6 +8,10 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsiX", "FsiX\FsiX.fsproj", 
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsiX.Web", "FsiX.Web\FsiX.Web.fsproj", "{F22559EE-A425-41EF-B529-51F51C31227D}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsiX.Server", "FsiX.Server\FsiX.Server.fsproj", "{FD2EC958-3919-43EE-AB56-C57FE8814259}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsiX.Cli", "FsiX.Cli\FsiX.Cli.fsproj", "{9E427EFB-2F17-4D38-97F9-0B93D0A5A3CA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +34,13 @@ Global
 		{F22559EE-A425-41EF-B529-51F51C31227D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F22559EE-A425-41EF-B529-51F51C31227D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F22559EE-A425-41EF-B529-51F51C31227D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FD2EC958-3919-43EE-AB56-C57FE8814259}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FD2EC958-3919-43EE-AB56-C57FE8814259}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FD2EC958-3919-43EE-AB56-C57FE8814259}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FD2EC958-3919-43EE-AB56-C57FE8814259}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9E427EFB-2F17-4D38-97F9-0B93D0A5A3CA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9E427EFB-2F17-4D38-97F9-0B93D0A5A3CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9E427EFB-2F17-4D38-97F9-0B93D0A5A3CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9E427EFB-2F17-4D38-97F9-0B93D0A5A3CA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

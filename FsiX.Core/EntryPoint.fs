@@ -3,13 +3,22 @@
 open System.Collections.Generic
 open System.IO
 
+open Fantomas.FCS.Diagnostics
 open FsiX.Features
 open FsiX.Middleware
 open FsiX.ProjectLoading
 open FsiX.AppState
+open FsiX.Utils
 open PrettyPrompt.Completion
 
+type CliLogger() =
+    interface ILogger with
+        member this.LogInfo s = Logging.logInfo s
+        member this.LogError s = Logging.logError s
+        member this.LogWarning s = Logging.logWarning s
 
+//todo make FsiX.Cli, move this there
+//and make FsiX.NRepl for another impl
 type FsiCallBacks(app: MailboxProcessor<AppState.Command>) =
     inherit PrettyPrompt.PromptCallbacks()
 
@@ -22,16 +31,22 @@ type FsiCallBacks(app: MailboxProcessor<AppState.Command>) =
               :> IReadOnlyList<CompletionItem>
         }
 
+//todo get args from config some flags like FsiXFlags.enableHotReload <- true
+//will work only for cli
+let cliDefaultArgsMiddleware next (request, st) =
+    next (request, st)
 let main useAsp args () =
     task {
         let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
         let appActor =
             let sln = loadSolution parsedArgs
-            AppState.mkAppStateActor useAsp sln
+            AppState.mkAppStateActor (CliLogger()) useAsp sln
         let middleware = [
+          cliDefaultArgsMiddleware
           Directives.viBindMiddleware
           Directives.OpenDirective.openDirectiveMiddleware
           ComputationExpression.compExprMiddleware
+          HotReloading.hotReloadingMiddleware
         ]
         appActor.Post(AddMiddleware middleware)
 
@@ -47,10 +62,14 @@ let main useAsp args () =
             try
                 let! userLine = prompt.ReadLineAsync()
                 if userLine.IsSuccess then
-                  let request = {Code = userLine.Text; Args = Map ["reload", "" ]} 
+                  let request = {Code = userLine.Text; Args = Map ["hotReload", true ]} 
                   let response = appActor.PostAndReply(fun r -> Command.Eval(request, userLine.CancellationToken, r))
-                  for m in response.Metadata.Values do
-                    Utils.Logging.logInfo m
+                  for d in response.Diagnostics do
+                      match d.Severity with
+                      | FSharpDiagnosticSeverity.Hidden | FSharpDiagnosticSeverity.Info -> Logging.logInfo d.Message
+                      | FSharpDiagnosticSeverity.Warning -> Logging.logWarning d.Message
+                      | FSharpDiagnosticSeverity.Error -> Logging.logError d.Message
+
             with _ -> ()
 
     }

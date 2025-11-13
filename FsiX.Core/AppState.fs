@@ -5,8 +5,10 @@ open System.IO
 
 open System.Threading
 open System.Threading.Tasks
+open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.Interactive.Shell
 open FSharpPlus
+open Fantomas.FCS.Diagnostics
 open FsiX.Features
 open FsiX.ProjectLoading
 open FsiX.Utils
@@ -66,6 +68,7 @@ type BufferedStdoutWriter() =
 
 type AppState = {
   Solution: Solution
+  Logger: ILogger
   GlobalConfig: string
   LocalConfigs: string array
   Session: FsiEvaluationSession
@@ -74,8 +77,25 @@ type AppState = {
   }
 
 
-type EvalResponse = {Result: Result<string, Exception * string>; Metadata: Map<string, string>}
-type EvalRequest = {Code: string; Args: Map<string, string>; }
+type Diagnostic = {
+  Message: string
+  Subcategory: string
+  Severity: FSharpDiagnosticSeverity } with
+  static member mkDiagnostic (fsDiagnostic: FSharpDiagnostic) =
+    let mapSeverity = function
+      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Error -> FSharpDiagnosticSeverity.Error
+      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Hidden -> FSharpDiagnosticSeverity.Hidden
+      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Info -> FSharpDiagnosticSeverity.Info
+      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Warning -> FSharpDiagnosticSeverity.Warning
+    {Message = fsDiagnostic.Message; Severity = mapSeverity fsDiagnostic.Severity; Subcategory = fsDiagnostic.Subcategory}
+type EvalResponse = {
+  ResultOutput: string
+  Error: Exception option
+  Diagnostics: Diagnostic array
+  EvaluatedCode: string
+  Metadata: Map<string, obj>
+  }
+type EvalRequest = {Code: string; Args: Map<string, obj>; }
 
 type MiddlewareNext = EvalRequest * AppState -> EvalResponse * AppState
 type Middleware = MiddlewareNext -> EvalRequest * AppState -> EvalResponse * AppState
@@ -91,14 +111,16 @@ let buildPipeline (middleware : Middleware list) evalFn =
   List.fold (fun next m -> m next) evalFn middleware
 let evalFn token = 
   fun ({Code = code; }, st) ->
-    try 
-      st.OutStream.StartRecording()
-      st.Session.EvalInteraction(code, token)
-      let res = st.OutStream.StopRecording()
-      {Result = Ok res; Metadata = Map.empty}, st
-    with e ->
-      {Result = Error (e, st.OutStream.StopRecording()); Metadata = Map.empty}, st
-let mkAppStateActor useAsp sln = MailboxProcessor.Start(fun mailbox ->
+    st.OutStream.StartRecording()
+    let evalRes, diagnostics = st.Session.EvalInteractionNonThrowing(code, token)
+    let error =
+      match evalRes with
+      | Choice1Of2 _ -> None
+      | Choice2Of2 ex -> Some ex
+    let resText = st.OutStream.StopRecording()
+    let diagnostics = diagnostics |> Array.map Diagnostic.mkDiagnostic
+    {ResultOutput = resText; Error = error; Diagnostics = diagnostics; Metadata = Map.empty; EvaluatedCode = code}, st
+let mkAppStateActor logger useAsp sln = MailboxProcessor.Start(fun mailbox ->
   let rec loop st middleware = async {
     let! cmd = mailbox.Receive()
     match cmd with 
@@ -156,7 +178,8 @@ let mkAppStateActor useAsp sln = MailboxProcessor.Start(fun mailbox ->
     let st = {Solution = sln;
               Session = fsiSession; 
               GlobalConfig = globalConfig;
-              LocalConfigs = localConfigs;
+              LocalConfigs = localConfigs
+              Logger = logger
               OutStream = out
               Custom = Map.empty}
 

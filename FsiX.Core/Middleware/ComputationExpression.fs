@@ -4,6 +4,7 @@ open Fantomas.Core.SyntaxOak
 open Fantomas.Core
 
 open FSharpPlus
+open FsiX
 open FsiX.Utils
 
 let parse code =
@@ -166,8 +167,9 @@ let rewriteParsedExpr (parsed: Oak) =
 
     Oak(parsed.ParsedHashDirectives, namespaces, parsed.Range)
 
-open System
-let rewriteCompExpr code =
+open FsiX.AppState
+
+let rewriteCompExpr (logger: ILogger) code =
     async {
         let! parsed = parse code
 
@@ -181,7 +183,7 @@ let rewriteCompExpr code =
                 let! code = CodeFormatter.FormatOakAsync rewrittenAst |>> String.trimEnd " \n"
 
                 let logCode code = 
-                  Logging.logInfo $"Rewriting user computation expresison input to: \n {code}"
+                  logger.LogInfo $"Rewriting user computation expression input to: \n {code}"
 
                 if parsed.hasTupleHack then
                     let code = code.Substring(0, code.Length - 2)
@@ -191,6 +193,6 @@ let rewriteCompExpr code =
                     logCode code
                     return code
     }
-let compExprMiddleware next (request: FsiX.AppState.EvalRequest, st) =
-  let rewritten = rewriteCompExpr request.Code |> Async.RunSynchronously
+let compExprMiddleware next (request, st) =
+  let rewritten = rewriteCompExpr st.Logger request.Code |> Async.RunSynchronously
   next ({request with Code = rewritten}, st)

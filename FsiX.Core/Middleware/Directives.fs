@@ -46,19 +46,19 @@ module OpenDirective =
         | None -> Set.ofList [fileName] :> obj |> Some
         | Some set -> set :?> OpenedFiles |> Set.add fileName :> obj |> Some
       {st with Custom = Map.change openedFileKey changeFn st.Custom}
-    let addMetadata response codeLines =
-      {response with Metadata = response.Metadata.Add(openDirectiveMetadata, String.concat "\n" codeLines)}
-
+      
     match request with
     | {Code = code; Args = args; } when args.ContainsKey "fileName" ->
-      let fileName = args["fileName"]
-      if hasOpenedFile fileName then
+      let fileName = args["fileName"] :?> string
+      if fileName = null || hasOpenedFile fileName then
         next (request, st)
       else 
-      let lines = openDirectiveLines (args["fileName"])
+      let lines = openDirectiveLines fileName
       let code = lines @ [code] |> String.concat "\n"
+      for l in lines do
+        st.Logger.LogInfo l
       let response, st = next ({request with Code = code}, st)
-      addMetadata response lines, addOpenedFile st fileName
+      response, addOpenedFile st fileName
     | {Code = code} when code.StartsWith "#o" -> 
       let commandWords = code.Split " "
       if commandWords.Length <= 2 then
@@ -69,8 +69,10 @@ module OpenDirective =
           let fileName = commandWords[1]
           let lines = openDirectiveLines fileName
           let code = String.concat "\n" lines
+          for l in lines do
+            st.Logger.LogInfo l
           let response, st = next ({request with Code = code}, st)
-          addMetadata response lines, addOpenedFile st fileName
+          response, addOpenedFile st fileName
         | _ -> next (request, st)
     | _ -> next (request, st)
   

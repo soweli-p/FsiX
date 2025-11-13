@@ -7,6 +7,9 @@ open System
 type Sep = CustomAssignmentOrSpacedAttribute
 type Alt = AltCommandLineAttribute
  
+ //todo check if we can have 2 subtypes, one for cli another for nrepl
+ //maybe make Other in FsiX.Nrepl?
+ //and add transport options, like websockets/tcp/tty, with provided ports and other configuration
 type Arguments = 
   | Sln of fileName: string
   | Proj of filename: string

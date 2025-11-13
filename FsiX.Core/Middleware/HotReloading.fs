@@ -2,8 +2,10 @@ module FsiX.Middleware.HotReloading
 open System
 open System.Reflection
 
+open FsiX
 open FsiX.ProjectLoading
 open FsiX.Utils
+open FsiX.AppState
 
 
 //todo 
@@ -49,6 +51,7 @@ let getAllMethods (asm: Assembly) =
   asm.GetExportedTypes() 
   |> Seq.collect (getMethods [])
 
+open FSharpPlus
 let mkReloadingState (sln: FsiX.ProjectLoading.Solution) = 
   let assemblies = 
     sln.Projects |> Seq.map (_.TargetPath >> Assembly.LoadFrom)
@@ -59,8 +62,13 @@ let mkReloadingState (sln: FsiX.ProjectLoading.Solution) =
     |> Seq.map (fun (methodName, methods) -> methodName, List.ofSeq methods)
     |> Map.ofSeq
   {Methods = methods; LastOpenModules = []; LastAssembly = None}
+  
+let getReloadingState (st: AppState) =
+  st.Custom
+  |> Map.tryFind "hotReload"
+  |> Option.map (fun reloadStObj -> reloadStObj :?> State)
+  |> Option.defaultWith (fun () -> mkReloadingState st.Solution)
 
-open FSharpPlus
 
 open HarmonyLib
 let detourMethod (method: MethodBase) (replacement: MethodBase) = 
@@ -73,38 +81,38 @@ let detourMethod (method: MethodBase) (replacement: MethodBase) =
   |> ignore
 
 open FuzzySharp
-let handleNewAsmFromRepl (asm: Assembly) (st: State) = 
+let handleNewAsmFromRepl (logger: ILogger) (asm: Assembly) (st: State) = 
   match st.LastAssembly with 
-  | Some prev when prev = asm -> st
+  | Some prev when prev = asm -> st, []
   | _ ->
-  for m in getAllMethods asm do
-    let potentialReplacement = 
-      Map.tryFind m.MethodInfo.Name st.Methods
-      >>= (
-        Seq.filter (fun existingMethod ->
-          let getParams m = m.MethodInfo.GetParameters() |> Array.map _.ParameterType
-          getParams existingMethod = getParams m
-          && existingMethod.MethodInfo.ReturnType = m.MethodInfo.ReturnType
-          && existingMethod.FullName.Contains m.FullName
-        ) 
-        >> Seq.sortByDescending (fun existingMethod -> 
-            let moduleCandidate = 
-              st.LastOpenModules
-              |> Seq.map (fun o -> Fuzz.Ratio(o + m.FullName, existingMethod.FullName))
-              |> Seq.tryHead
-              |> Option.defaultValue 0
-            let noModuleCandidate = Fuzz.Ratio(m.FullName, existingMethod.FullName)
-            max moduleCandidate noModuleCandidate
-        )
-        >> Seq.tryHead
+  let replacementPairs =
+    getAllMethods asm
+    |> Seq.choose (fun newMethod ->
+        Map.tryFind newMethod.MethodInfo.Name st.Methods
+        >>= (
+          Seq.filter (fun existingMethod ->
+            let getParams m = m.MethodInfo.GetParameters() |> Array.map _.ParameterType
+            getParams existingMethod = getParams newMethod
+            && existingMethod.MethodInfo.ReturnType = newMethod.MethodInfo.ReturnType
+            && existingMethod.FullName.Contains newMethod.FullName
+          ) 
+          >> Seq.sortByDescending (fun existingMethod -> 
+              let moduleCandidate = 
+                st.LastOpenModules
+                |> Seq.map (fun o -> Fuzz.Ratio(o + newMethod.FullName, existingMethod.FullName))
+                |> Seq.tryHead
+                |> Option.defaultValue 0
+              let noModuleCandidate = Fuzz.Ratio(newMethod.FullName, existingMethod.FullName)
+              max moduleCandidate noModuleCandidate
+          )
+          >> Seq.tryHead)
+        |> Option.map (fun oldMethod -> oldMethod, newMethod)
       )
-    match potentialReplacement with
-    | None -> ()
-    | Some methodToReplace ->
-      Logging.logInfo <| "Updating method" + methodToReplace.FullName
-      detourMethod methodToReplace.MethodInfo m.MethodInfo
-      ()
-  {st with LastAssembly = Some asm}
+    |> Seq.toList
+  for methodToReplace, newMethod in replacementPairs do
+      logger.LogInfo <| "Updating method" + methodToReplace.FullName
+      detourMethod methodToReplace.MethodInfo newMethod.MethodInfo
+  {st with LastAssembly = Some asm}, List.map (snd >> _.FullName) replacementPairs
 
 
 let getOpenModules replCode st = 
@@ -115,5 +123,19 @@ let getOpenModules replCode st =
     |> Seq.filter (Array.tryHead >> Option.map ((=) "open") >> Option.defaultValue false)
     |> Seq.map (fun arr -> arr[1])
     |> Seq.toList
-  {st with LastOpenModules = modules @ st.LastOpenModules}
+  {st with LastOpenModules = (modules @ st.LastOpenModules) |> List.distinct}
   
+let hotReloadingMiddleware next (request, st) = 
+  match request with
+  | {Args = m} when m.ContainsKey "hotReload" && m["hotReload"] = true ->
+      let response, st = next (request, st)
+      if response.Error.IsSome then response, st
+      else
+      let asm = st.Session.DynamicAssemblies |> Array.last
+      let reloadingSt, updatedMethods =
+        getReloadingState st
+        |> getOpenModules response.EvaluatedCode
+        |> handleNewAsmFromRepl st.Logger asm
+      {response with Metadata = response.Metadata.Add("reloadedMethods", updatedMethods)},
+      {st with Custom = st.Custom.Add("hotReload", reloadingSt)}
+  | _ -> next (request, st)

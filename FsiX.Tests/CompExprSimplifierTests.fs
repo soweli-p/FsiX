@@ -3,6 +3,7 @@ module FsiX.Tests.CompExprSimplifierTests
 open Expecto
 
 open FsiX.Middleware.ComputationExpression
+open FsiX.Utils
 
 let isCompExpr =
     parse
@@ -10,7 +11,14 @@ let isCompExpr =
     >> Option.map (fun res -> res.tree |> isCompExpr)
     >> Option.defaultValue false
 
-let rewriteExpr = rewriteCompExpr >> Async.RunSynchronously >> _.Replace("\r\n", "\n")
+type MockLogger() =
+    interface ILogger with
+        member this.LogInfo _ = ()
+        member this.LogError _ = ()
+        member this.LogWarning _ = ()
+let mockLogger = MockLogger()
+
+let rewriteExpr = rewriteCompExpr mockLogger >> Async.RunSynchronously >> _.Replace("\r\n", "\n")
 
 
 [<Tests>]
