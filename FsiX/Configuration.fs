@@ -8,7 +8,7 @@ open FSharpPlus
 let prettyPromptDll =
     typeof<PrettyPrompt.PromptConfiguration> |> _.Assembly |> _.Location
 
-let loadDllString = $"#r \"{prettyPromptDll}\"\n" |> _.Replace(@"\", @"\\")
+let loadDllString = $"#r \"{prettyPromptDll}\"" |> _.Replace(@"\", @"\\")
 
 
 
