@@ -1,34 +1,41 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <OutputType>Exe</OutputType>
+        <OutputType>Library</OutputType>
         <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
-        <PackAsTool>true</PackAsTool>
-        <IsPackable>true</IsPackable>
-        <ToolCommandName>fsix</ToolCommandName>
-        <PackageOutputPath>./nupkg</PackageOutputPath>
-        <Version>0.0.5</Version>
-
-        <!-- NuGet config -->
-        <PackageId>FsiX</PackageId>
-        <PackageTags>fsharp;functional;repl;interactive;shell;asp.net core;asp.net;.net core;fsix;fsix-web</PackageTags>
-        <PackageProjectUrl>https://github.com/soweli-p/FsiX</PackageProjectUrl>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <PackageReadmeFile>Readme.md</PackageReadmeFile>
-        <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-        <RepositoryType>git</RepositoryType>
-        <RepositoryUrl>https://github.com/soweli-p/FsiX</RepositoryUrl>
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Program.fs"/>
+        <Compile Include="Args.fs"/>
+        <Compile Include="Utils.fs"/>
+        <Compile Include="ProjectLoading.fs"/>
+        <Compile Include="Configuration.fs"/>
+        <Compile Include="AutoCompletion.fs" />
+        <Compile Include="AppState.fs"/>
+        <Compile Include="Middleware\ComputationExpression.fs" />
+        <Compile Include="Middleware\Directives.fs" />
+        <Compile Include="Middleware\HotReloading.fs" />
     </ItemGroup>
 
     <ItemGroup>
-        <None Include="..\Readme.md" Pack="true" PackagePath="\"/>
+        <EmbeddedResource Include="repl.fsx"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+        <PackageReference Include="FSharp.Compiler.Service" Version="43.8.*"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+        <PackageReference Include="FSharp.Compiler.Service" Version="43.9.*"/>
     </ItemGroup>
     <ItemGroup>
-      <ProjectReference Include="..\FsiX.Core\FsiX.Core.fsproj" />
+        <PackageReference Include="FSharpPlus" Version="1.7.0"/>
+        <PackageReference Include="FuzzySharp" Version="2.0.2"/>
+        <PackageReference Include="Lib.Harmony" Version="2.3.6" />
+        <PackageReference Include="PrettyPrompt" Version="4.1.1"/>
+        <PackageReference Include="Ionide.ProjInfo" Version="0.67.0"/>
+        <PackageReference Include="Ionide.ProjInfo.FCS" Version="0.67.0"/>
+        <PackageReference Include="Fantomas.Core" Version="7.0.1"/>
+        <PackageReference Include="Argu" Version="6.2.5"/>
     </ItemGroup>
 
 </Project>

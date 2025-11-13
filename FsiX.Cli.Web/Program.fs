@@ -1,6 +1,7 @@
 ﻿// For more information see https://aka.ms/fsharp-console-apps
+open FsiX.Cli
 
 [<EntryPoint>]
 let main args =
-  FsiX.EntryPoint.main true args () |> _.GetAwaiter() |> _.GetResult()
+  CliEventLoop.runCliEventLoop true args () |> _.GetAwaiter() |> _.GetResult()
   0

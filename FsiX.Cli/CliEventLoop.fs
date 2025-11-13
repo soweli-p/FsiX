@@ -1,4 +1,4 @@
-﻿module FsiX.EntryPoint
+module FsiX.Cli.CliEventLoop
 
 open System.Collections.Generic
 open System.IO
@@ -10,6 +10,7 @@ open FsiX.ProjectLoading
 open FsiX.AppState
 open FsiX.Utils
 open PrettyPrompt.Completion
+open FsiX
 
 type CliLogger() =
     interface ILogger with
@@ -17,8 +18,6 @@ type CliLogger() =
         member this.LogError s = Logging.logError s
         member this.LogWarning s = Logging.logWarning s
 
-//todo make FsiX.Cli, move this there
-//and make FsiX.NRepl for another impl
 type FsiCallBacks(app: MailboxProcessor<AppState.Command>) =
     inherit PrettyPrompt.PromptCallbacks()
 
@@ -35,7 +34,7 @@ type FsiCallBacks(app: MailboxProcessor<AppState.Command>) =
 //will work only for cli
 let cliDefaultArgsMiddleware next (request, st) =
     next (request, st)
-let main useAsp args () =
+let runCliEventLoop useAsp args () =
     task {
         let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
         let appActor =

@@ -23,12 +23,11 @@
     <ItemGroup>
         <Compile Include="Program.fs"/>
     </ItemGroup>
-
     <ItemGroup>
         <None Include="..\Readme.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
     <ItemGroup>
-      <ProjectReference Include="..\FsiX.Core\FsiX.Core.fsproj" />
+      <ProjectReference Include="..\FsiX.Cli\FsiX.Cli.fsproj" />
     </ItemGroup>
 
 </Project>

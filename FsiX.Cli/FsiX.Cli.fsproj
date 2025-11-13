@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+        <PackAsTool>true</PackAsTool>
+        <IsPackable>true</IsPackable>
+        <ToolCommandName>fsix</ToolCommandName>
+        <PackageOutputPath>./nupkg</PackageOutputPath>
+        <Version>0.0.5</Version>
+
+        <!-- NuGet config -->
+        <PackageId>FsiX.Cli</PackageId>
+        <PackageTags>fsharp;functional;repl;interactive;shell;asp.net core;asp.net;.net core;fsix;fsix-web</PackageTags>
+        <PackageProjectUrl>https://github.com/soweli-p/FsiX</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>Readme.md</PackageReadmeFile>
+        <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/soweli-p/FsiX</RepositoryUrl>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="CliEventLoop.fs" />
+        <Compile Include="Program.fs"/>
+        <None Include="..\Readme.md">
+          <Pack>true</Pack>
+          <PackagePath>/</PackagePath>
+          <Link>Readme.md</Link>
+        </None>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\FsiX\FsiX.fsproj" />
+    </ItemGroup>
+
+</Project>
