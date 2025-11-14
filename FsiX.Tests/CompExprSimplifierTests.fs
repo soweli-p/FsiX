@@ -13,6 +13,7 @@ let isCompExpr =
 
 type MockLogger() =
     interface ILogger with
+        member this.LogDebug _ = ()
         member this.LogInfo _ = ()
         member this.LogError _ = ()
         member this.LogWarning _ = ()

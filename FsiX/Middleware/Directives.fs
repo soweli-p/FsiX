@@ -55,7 +55,7 @@ module OpenDirective =
       let lines = openDirectiveLines fileName
       let code = lines @ [code] |> String.concat "\n"
       for l in lines do
-        st.Logger.LogInfo l
+        st.Logger.LogDebug l
       let response, st = next ({request with Code = code}, st)
       response, addOpenedFile st fileName
     | {Code = code} when code.StartsWith "#o" -> 
@@ -69,7 +69,7 @@ module OpenDirective =
           let lines = openDirectiveLines fileName
           let code = String.concat "\n" lines
           for l in lines do
-            st.Logger.LogInfo l
+            st.Logger.LogDebug l
           let response, st = next ({request with Code = code}, st)
           response, addOpenedFile st fileName
         | _ -> next (request, st)

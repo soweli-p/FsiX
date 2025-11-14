@@ -14,6 +14,7 @@ open FsiX
 
 type CliLogger() =
     interface ILogger with
+        member this.LogDebug s = Logging.logDebug s
         member this.LogInfo s = Logging.logInfo s
         member this.LogError s = Logging.logError s
         member this.LogWarning s = Logging.logWarning s
@@ -35,7 +36,7 @@ let runCliEventLoop useAsp args () =
         let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
         let appActor =
             let sln = loadSolution parsedArgs
-            AppState.mkAppStateActor (CliLogger()) useAsp sln
+            AppState.mkAppStateActor (CliLogger()) stdout useAsp sln
         let middleware = [
           Directives.viBindMiddleware
           Directives.OpenDirective.openDirectiveMiddleware
@@ -60,7 +61,8 @@ let runCliEventLoop useAsp args () =
                   let response = appActor.PostAndReply(fun r -> Command.Eval(request, userLine.CancellationToken, r))
                   for d in response.Diagnostics do
                       match d.Severity with
-                      | FSharpDiagnosticSeverity.Hidden | FSharpDiagnosticSeverity.Info -> Logging.logInfo d.Message
+                      | FSharpDiagnosticSeverity.Info -> Logging.logInfo d.Message
+                      | FSharpDiagnosticSeverity.Hidden -> Logging.logDebug d.Message
                       | FSharpDiagnosticSeverity.Warning -> Logging.logWarning d.Message
                       | FSharpDiagnosticSeverity.Error -> Logging.logError d.Message
 

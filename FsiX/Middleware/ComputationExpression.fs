@@ -183,7 +183,7 @@ let rewriteCompExpr (logger: ILogger) code =
                 let! code = CodeFormatter.FormatOakAsync rewrittenAst |>> String.trimEnd " \n"
 
                 let logCode code = 
-                  logger.LogInfo $"Rewriting user computation expression input to: \n {code}"
+                  logger.LogDebug $"Rewriting user computation expression input to: \n {code}"
 
                 if parsed.hasTupleHack then
                     let code = code.Substring(0, code.Length - 2)

@@ -20,14 +20,13 @@ type FilePath = string
 
 
 open System.Text
-type BufferedStdoutWriter() =
+type TextWriterRecorder(writerToRecord: TextWriter) =
   inherit TextWriter()
 
-  let realStdout = Console.Out
   let mutable isEnabled = false
   let mutable recording: StringBuilder option = None
 
-  override _.Encoding = realStdout.Encoding
+  override _.Encoding = writerToRecord.Encoding
 
   override _.Write(value: char) =
     match recording with 
@@ -35,21 +34,21 @@ type BufferedStdoutWriter() =
     | Some recorder -> 
       recorder.Append value |> ignore
 
-    if isEnabled then realStdout.Write value
+    if isEnabled then writerToRecord.Write value
 
   override _.Write(value: string) =
     match recording with 
     | None -> ()
     | Some recorder -> 
       recorder.Append value |> ignore
-    if isEnabled then realStdout.Write value
+    if isEnabled then writerToRecord.Write value
 
   override _.Write(bufferArr: char[], index: int, count: int) =
     match recording with 
     | None -> ()
     | Some recorder -> 
       recorder.Append(bufferArr, index, count) |> ignore
-    if isEnabled then realStdout.Write(bufferArr, index, count)
+    if isEnabled then writerToRecord.Write(bufferArr, index, count)
 
   member _.Enable() =
     isEnabled <- true
@@ -63,7 +62,7 @@ type BufferedStdoutWriter() =
       recorder.ToString()
 
   override _.Flush() =
-      realStdout.Flush()
+      writerToRecord.Flush()
 
 
 type AppState = {
@@ -72,7 +71,7 @@ type AppState = {
   GlobalConfig: string
   LocalConfigs: string array
   Session: FsiEvaluationSession
-  OutStream: BufferedStdoutWriter
+  OutStream: TextWriterRecorder
   Custom: Map<string, obj>
   }
 
@@ -120,7 +119,7 @@ let evalFn token =
     let resText = st.OutStream.StopRecording()
     let diagnostics = diagnostics |> Array.map Diagnostic.mkDiagnostic
     {ResultOutput = resText; Error = error; Diagnostics = diagnostics; Metadata = Map.empty; EvaluatedCode = code}, st
-let mkAppStateActor logger useAsp sln = MailboxProcessor.Start(fun mailbox ->
+let mkAppStateActor (logger: ILogger) outStream useAsp sln = MailboxProcessor.Start(fun mailbox ->
   let rec loop st middleware = async {
     let! cmd = mailbox.Receive()
     match cmd with 
@@ -145,42 +144,42 @@ let mkAppStateActor logger useAsp sln = MailboxProcessor.Start(fun mailbox ->
       return! loop st (middleware @ additionalMiddleware)
   }
   and init () = async {
-    printfn "Welcome to FsiX!"
-    printfn "Loading these projects: "
+    logger.LogInfo "Welcome to FsiX!"
+    logger.LogInfo "Loading these projects: "
     for project in sln.Projects do
-      printfn "%s" project.ProjectFileName
+      logger.LogInfo project.ProjectFileName
     let globalConfigTask = Configuration.loadGlobalConfig ()
     let localConfigTasks = sln.StartupFiles |> Seq.map File.ReadAllTextAsync |> Task.WhenAll
     let fsiConfig = FsiEvaluationSession.GetDefaultConfiguration()
     let args = solutionToFsiArgs useAsp sln
 
 
-    let out = new BufferedStdoutWriter()
+    let recorder = new TextWriterRecorder(outStream)
     let fsiSession =
         FsiEvaluationSession.Create(
             fsiConfig,
             args,
             new StreamReader(Stream.Null),
-            out,
-            stdout,
+            recorder,
+            outStream,
             collectible = true
         )
     let! globalConfig, localConfigs = 
       Task.map2 tuple2 globalConfigTask localConfigTasks |> Async.AwaitTask
 
-    printfn "Loading configuration..."
+    logger.LogInfo "Loading configuration..."
     fsiSession.EvalInteraction(globalConfig, CancellationToken.None)
 
     for cfg in localConfigs do
       fsiSession.EvalInteraction(cfg, CancellationToken.None)
-    out.Enable()
+    recorder.Enable()
 
     let st = {Solution = sln;
               Session = fsiSession; 
               GlobalConfig = globalConfig;
               LocalConfigs = localConfigs
               Logger = logger
-              OutStream = out
+              OutStream = recorder
               Custom = Map.empty}
 
     return! loop st []

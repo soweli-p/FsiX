@@ -110,7 +110,7 @@ let handleNewAsmFromRepl (logger: ILogger) (asm: Assembly) (st: State) =
       )
     |> Seq.toList
   for methodToReplace, newMethod in replacementPairs do
-      logger.LogInfo <| "Updating method" + methodToReplace.FullName
+      logger.LogDebug <| "Updating method" + methodToReplace.FullName
       detourMethod methodToReplace.MethodInfo newMethod.MethodInfo
   {st with LastAssembly = Some asm}, List.map (snd >> _.FullName) replacementPairs
 
