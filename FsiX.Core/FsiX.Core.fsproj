@@ -24,13 +24,8 @@
         <EmbeddedResource Include="repl.fsx"/>
     </ItemGroup>
 
-    <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
-        <PackageReference Include="FSharp.Compiler.Service" Version="43.8.*"/>
-    </ItemGroup>
-    <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-        <PackageReference Include="FSharp.Compiler.Service" Version="43.9.*"/>
-    </ItemGroup>
     <ItemGroup>
+        <PackageReference Include="FSharp.Compiler.Service" Version="43.10.*"/>
         <PackageReference Include="FSharpPlus" Version="1.7.0"/>
         <PackageReference Include="FuzzySharp" Version="2.0.2"/>
         <PackageReference Include="Lib.Harmony" Version="2.3.6" />
