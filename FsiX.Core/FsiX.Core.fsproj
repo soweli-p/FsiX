@@ -12,6 +12,7 @@
         <Compile Include="ProjectLoading.fs"/>
         <Compile Include="Configuration.fs"/>
         <Compile Include="AutoCompletion.fs" />
+        <Compile Include="SyntaxHighlighting.fs" />
         <Compile Include="AppState.fs"/>
         <Compile Include="Middleware\ComputationExpression.fs" />
         <Compile Include="Middleware\Directives.fs" />

@@ -14,32 +14,6 @@ open PrettyPrompt.Completion
 open PrettyPrompt.Highlighting
 open PrettyPrompt.Documents
 
-#nowarn "0057"
-type private FSharpToken with
-    member this.IsControlKeyword =
-        match this.Kind with
-        | FSharpTokenKind.OffsideDo
-        | FSharpTokenKind.OffsideElse
-        | FSharpTokenKind.OffsideThen
-        | FSharpTokenKind.Match
-        | FSharpTokenKind.MatchBang
-        | FSharpTokenKind.If
-        | FSharpTokenKind.Then
-        | FSharpTokenKind.Elif
-        | FSharpTokenKind.Else
-        | FSharpTokenKind.Assert
-        | FSharpTokenKind.While
-        | FSharpTokenKind.WhileBang
-        | FSharpTokenKind.Do
-        | FSharpTokenKind.DoBang
-        | FSharpTokenKind.For
-        | FSharpTokenKind.To
-        | FSharpTokenKind.DownTo
-        | FSharpTokenKind.Try
-        | FSharpTokenKind.Yield
-        | FSharpTokenKind.YieldBang -> true
-        | _ -> false
-
 type FsiCallBacks(app: MailboxProcessor<AppState.Command>) =
     inherit PrettyPrompt.PromptCallbacks()
 
@@ -53,28 +27,8 @@ type FsiCallBacks(app: MailboxProcessor<AppState.Command>) =
         }
 
     override _.HighlightCallbackAsync (text: string, cancellationToken: System.Threading.CancellationToken) =
-        let lineLengths = text.Split('\n') |> Seq.map (String.length >> (+) 1) |> Seq.toArray
-        let posToIndex (p: pos) = (lineLengths |> Seq.take (p.Line - 1) |> Seq.sum) +  p.Column
-        let rangeToSpan (r: range) =
-            let start = posToIndex r.Start
-            TextSpan(start, posToIndex r.End - start)
-        let toFormatSpan (token: FSharpToken) =
-            let mkSpan (color: AnsiColor) =
-                FormatSpan(rangeToSpan token.Range, ConsoleFormat(System.Nullable color))
-                |> Some
-            if token.IsIdentifier then mkSpan AnsiColor.BrightBlue
-            else if token.IsControlKeyword then mkSpan AnsiColor.BrightRed
-            else if token.IsKeyword then mkSpan AnsiColor.Blue
-            else if token.IsNumericLiteral then mkSpan AnsiColor.BrightGreen
-            else if token.IsStringLiteral then mkSpan AnsiColor.Red
-            else None
-        task {
-            let tokens = ResizeArray()
-            FSharpLexer.Tokenize(
-                SourceText.ofString text,
-                (fun token -> toFormatSpan token |> Option.iter tokens.Add))
-            return tokens
-        }
+        app.PostAndAsyncReply(fun r -> SyntaxHighlight(text, r))
+        |> Async.StartAsTask
 
 let main useAsp args () =
     task {

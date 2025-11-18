@@ -2,6 +2,7 @@ module FsiX.AppState
 
 open System
 open System.IO
+open System.Collections.Generic
 
 open System.Threading
 open System.Threading.Tasks
@@ -12,6 +13,7 @@ open FsiX.ProjectLoading
 open FsiX.Utils
 
 open PrettyPrompt
+open PrettyPrompt.Highlighting
 
 
 type FilePath = string
@@ -83,6 +85,7 @@ type Middleware = MiddlewareNext -> EvalRequest * AppState -> EvalResponse * App
 type Command = 
   | Eval of EvalRequest * CancellationToken * AsyncReplyChannel<EvalResponse>
   | Autocomplete of text: string * caret: int * word: string * AsyncReplyChannel<list<Completion.CompletionItem>>
+  | SyntaxHighlight of text: string * AsyncReplyChannel<IReadOnlyCollection<FormatSpan>>
   | GetConfiguration of AsyncReplyChannel<PromptConfiguration>
   | AddMiddleware of Middleware list
 
@@ -104,6 +107,10 @@ let mkAppStateActor useAsp sln = MailboxProcessor.Start(fun mailbox ->
     match cmd with 
     | Autocomplete (text, caret, word, reply) -> 
       let res = AutoCompletion.getCompletions st.Session text caret word
+      reply.Reply res
+      return! loop st middleware
+    | SyntaxHighlight (text, reply) ->
+      let res = SyntaxHighlighting.getFormatSpans text
       reply.Reply res
       return! loop st middleware
     | GetConfiguration reply -> 
