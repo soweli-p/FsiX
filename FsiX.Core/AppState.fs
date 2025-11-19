@@ -123,7 +123,9 @@ let mkAppStateActor useAsp sln = MailboxProcessor.Start(fun mailbox ->
       return! loop st middleware
     | Eval (request, token, reply) -> 
       let pipeline = buildPipeline middleware (evalFn token)
-      let res, newSt = pipeline (request, st)
+      let res, newSt =
+        try pipeline (request, st)
+        with e -> {Result = Error (e, st.OutStream.StopRecording()); Metadata = Map.empty}, st
       reply.Reply res
       return! loop newSt middleware
     | AddMiddleware additionalMiddleware -> 

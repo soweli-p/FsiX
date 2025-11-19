@@ -37,8 +37,8 @@ let main useAsp args () =
             let sln = loadSolution parsedArgs
             AppState.mkAppStateActor useAsp sln
         let middleware = [
-          Directives.viBindMiddleware
           Directives.OpenDirective.openDirectiveMiddleware
+          Directives.viBindMiddleware
           ComputationExpression.compExprMiddleware
         ]
         appActor.Post(AddMiddleware middleware)
@@ -59,7 +59,10 @@ let main useAsp args () =
                   let response = appActor.PostAndReply(fun r -> Command.Eval(request, userLine.CancellationToken, r))
                   for m in response.Metadata.Values do
                     Utils.Logging.logInfo m
-            with _ -> ()
+                  match response.Result with
+                  | Error (e, s) -> printfn "%A\n%s" e s
+                  | Ok _ -> ()
+            with ex -> printfn "%s" ex.Message
 
     }
 
