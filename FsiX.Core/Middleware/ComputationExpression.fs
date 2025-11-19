@@ -154,6 +154,7 @@ let rewriteParsedExpr (parsed: Oak) =
 
             ComputationExpressionStatement.OtherStatement newStatement
         | ComputationExpressionStatement.OtherStatement e -> mapExpr e |> ComputationExpressionStatement.OtherStatement
+        | e -> e
 
     let mapDecl =
         function
