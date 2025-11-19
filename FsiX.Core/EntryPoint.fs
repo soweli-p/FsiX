@@ -60,6 +60,7 @@ let main useAsp args () =
                   for m in response.Metadata.Values do
                     Utils.Logging.logInfo m
                   match response.Result with
+                  | Error (:? FSharp.Compiler.Interactive.Shell.FsiCompilationException, _) -> ()
                   | Error (e, s) -> printfn "%A\n%s" e s
                   | Ok _ -> ()
             with ex -> printfn "%s" ex.Message
