@@ -8,11 +8,53 @@ open Fantomas.Core
 open Fantomas.FCS.Syntax
 open FsiX.AppState
 open FsiX.Utils
+open FParsec
 
 module OpenDirective =
   let openedFileKey = "openedFiles"
   let openDirectiveMetadata = "openDirectiveMetadata"
   type OpenedFiles = string Set
+
+  let parseOpenDirective =
+    let quotedString =
+      let unescapedChar = noneOf "\\\""
+
+      let escapedChar =
+          [ "\\\"", '"'
+            "\\\\", '\\'
+            "\\/", '/'
+            "\\b", '\b'
+            "\\f", '\f'
+            "\\n", '\n'
+            "\\r", '\r'
+            "\\t", '\t' ]
+          |> List.map (fun (toMatch, result) -> stringReturn toMatch result)
+          |> choice
+
+      let unicodeChar =
+          let convertToChar (s: string) =
+              System.Int32.Parse(s.Substring(2), System.Globalization.NumberStyles.HexNumber) |> char
+
+          regex @"\\u\d{4}" |>> convertToChar
+
+      let ochar = choice [ unescapedChar; escapedChar; unicodeChar ]
+
+      manyChars ochar |> between (pchar '"') (pchar '"')
+
+    let dotIdent =
+      sepBy1 (identifier (IdentifierOptions())) (pchar '.') |>> String.concat "."
+
+    let parser =
+      spaces >>. pchar '#' >>. (pstring "o" <|> pstring "open")
+      >>. ((spaces >>. quotedString) <|> (spaces1 >>. dotIdent))
+      .>> spaces .>> eof
+
+    fun source ->
+      run parser source
+      |> function
+        | Success(path, _, _) -> Some path
+        | Failure _ -> None
+
   let openDirectiveMiddleware next (request, st) =
     let openDirectiveLines fileToOpen =
       let fileToOpen = Path.GetFullPath fileToOpen
@@ -59,20 +101,22 @@ module OpenDirective =
       let code = lines @ [code] |> String.concat "\n"
       let response, st = next ({request with Code = code}, st)
       addMetadata response lines, addOpenedFile st fileName
-    | {Code = code} when code.StartsWith "#o" -> 
-      let commandWords = code.Split " "
-      if commandWords.Length <= 2 then
-        next (request, st)
-      else
-        match commandWords[0] with 
-        | "#o" | "#open" -> 
-          let fileName = commandWords[1]
-          let lines = openDirectiveLines fileName
-          let code = String.concat "\n" lines
-          let response, st = next ({request with Code = code}, st)
-          addMetadata response lines, addOpenedFile st fileName
-        | _ -> next (request, st)
-    | _ -> next (request, st)
+    | {Code = code} ->
+      match parseOpenDirective code with
+      | Some path ->
+        let commandWords = code.Split " "
+        if commandWords.Length < 2 then
+          next (request, st)
+        else
+          match commandWords[0] with 
+          | "#o" | "#open" -> 
+            let fileName = commandWords[1]
+            let lines = openDirectiveLines fileName
+            let code = String.concat "\n" lines
+            let response, st = next ({request with Code = code}, st)
+            addMetadata response lines, addOpenedFile st fileName
+          | _ -> next (request, st)
+      | _ -> next (request, st)
   
 
 let viBindMiddleware next (request, st) = 
