@@ -126,7 +126,6 @@ module OpenDirective =
   
 
 let viBindMiddleware next (request, st) = 
-  match request with
-  | {Code = code} when code.StartsWith ":" -> 
-    next ({request with Code = "#" + code.Substring 1 }, st)
-  | _ -> next (request, st)
+  let trimmed = request.Code.TrimStart()
+  if trimmed.StartsWith(':') then next ({request with Code = "#" + trimmed[1..]}, st)
+  else next (request, st)
