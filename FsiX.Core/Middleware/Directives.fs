@@ -41,21 +41,29 @@ module OpenDirective =
 
       manyChars ochar |> between (pchar '"') (pchar '"')
 
+    let ident = identifier (IdentifierOptions())
+
     let dotIdent =
-      sepBy1 (identifier (IdentifierOptions())) (pchar '.') |>> String.concat "."
+      sepBy1 ident (pchar '.') |>> String.concat "."
 
     let parser =
-      spaces >>. pchar '#' >>. (pstring "o" <|> pstring "open")
-      >>. ((spaces >>. quotedString) <|> (spaces1 >>. dotIdent))
+      spaces >>. pchar '#' >>. (pstring "open" <|> pstring "o") >>. notFollowedBy ident
+      >>. many (spaces >>. (dotIdent <|> quotedString))
       .>> spaces .>> eof
 
     fun source ->
       run parser source
       |> function
-        | Success(path, _, _) -> Some path
+        | Success(paths, _, _) -> Some paths
         | Failure _ -> None
 
   let openDirectiveMiddleware next (request, st) =
+    let moduleNameOfPath (path: string) =
+      path
+      |> System.IO.Path.GetFileNameWithoutExtension
+      |> function
+        | "" -> ""
+        | s -> $"{System.Char.ToUpper s[0]}{s[1..]}"
     let openDirectiveLines fileToOpen =
       let fileToOpen = Path.GetFullPath fileToOpen
       let file = File.ReadAllText fileToOpen
@@ -64,7 +72,7 @@ module OpenDirective =
 
       let (ParsedInput.ImplFile(ParsedImplFileInput(contents = contents))) = res
 
-      let [ SynModuleOrNamespace(decls = codeLines; longId = l) ] = contents
+      let [ SynModuleOrNamespace(decls = codeLines; longId = _) ] = contents
 
       let runOpen (l: LongIdent) =
           let path =
@@ -77,7 +85,7 @@ module OpenDirective =
           | SynOpenDeclTarget.ModuleOrNamespace(longId = l) -> Some <| runOpen l.LongIdent
           | SynOpenDeclTarget.Type(typeName = t) -> None //todo
         | _ -> None
-      runOpen l :: List.choose chooseFn codeLines
+      $"open {moduleNameOfPath fileToOpen}" :: List.choose chooseFn codeLines
     let hasOpenedFile fileName = 
       match st.Custom.TryFind openedFileKey with
       | None -> false
@@ -103,19 +111,17 @@ module OpenDirective =
       addMetadata response lines, addOpenedFile st fileName
     | {Code = code} ->
       match parseOpenDirective code with
-      | Some path ->
-        let commandWords = code.Split " "
-        if commandWords.Length < 2 then
-          next (request, st)
-        else
-          match commandWords[0] with 
-          | "#o" | "#open" -> 
-            let fileName = commandWords[1]
-            let lines = openDirectiveLines fileName
-            let code = String.concat "\n" lines
-            let response, st = next ({request with Code = code}, st)
-            addMetadata response lines, addOpenedFile st fileName
-          | _ -> next (request, st)
+      | Some paths ->
+        paths
+        |> Seq.distinct
+        |> Seq.collect (fun path ->
+          st.Session.EvalScriptNonThrowing path |> ignore
+          openDirectiveLines path)
+        |> fun lines ->
+          let code = String.concat "\n" lines
+          printfn "%s" code
+          let response, st = next ({request with Code = code}, st)
+          addMetadata response lines, paths |> Seq.fold addOpenedFile st 
       | _ -> next (request, st)
   
 
