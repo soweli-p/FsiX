@@ -48,7 +48,7 @@ let private toFormatSpan lineLengths (token: FSharpToken) =
         |> Some
     if token.IsIdentifier then mkSpan AnsiColor.BrightBlue
     else if token.IsControlKeyword then mkSpan AnsiColor.BrightRed
-    else if token.IsKeyword then mkSpan AnsiColor.Blue
+    else if token.IsKeyword && token.Kind <> FSharpTokenKind.OffsideEnd then mkSpan AnsiColor.Blue
     else if token.IsNumericLiteral then mkSpan AnsiColor.BrightGreen
     else if token.IsStringLiteral then mkSpan AnsiColor.Red
     else None
