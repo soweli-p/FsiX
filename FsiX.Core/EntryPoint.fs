@@ -37,6 +37,7 @@ let main useAsp args () =
             let sln = loadSolution parsedArgs
             AppState.mkAppStateActor useAsp sln
         let middleware = [
+          Directives.HelpDirective.helpDirectiveMiddleware
           Directives.OpenDirective.openDirectiveMiddleware
           Directives.viBindMiddleware
           ComputationExpression.compExprMiddleware

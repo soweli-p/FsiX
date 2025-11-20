@@ -10,52 +10,54 @@ open FsiX.AppState
 open FsiX.Utils
 open FParsec
 
+module Parsers =
+  let quotedString =
+    let unescapedChar = noneOf "\\\""
+
+    let escapedChar =
+        [ "\\\"", '"'
+          "\\\\", '\\'
+          "\\/", '/'
+          "\\b", '\b'
+          "\\f", '\f'
+          "\\n", '\n'
+          "\\r", '\r'
+          "\\t", '\t' ]
+        |> List.map (fun (toMatch, result) -> stringReturn toMatch result)
+        |> choice
+
+    let unicodeChar =
+        let convertToChar (s: string) =
+            System.Int32.Parse(s.Substring(2), System.Globalization.NumberStyles.HexNumber) |> char
+
+        regex @"\\u\d{4}" |>> convertToChar
+
+    let ochar = choice [ unescapedChar; escapedChar; unicodeChar ]
+
+    manyChars ochar |> between (pchar '"') (pchar '"')
+
+  let ident = identifier (IdentifierOptions())
+
+  let dotIdent =
+    sepBy1 ident (pchar '.') |>> String.concat "."
+
+  let runParser parser  source  =
+    match run parser source with
+    | Success(result, _, _) -> Some result
+    | Failure _ -> None
+
 module OpenDirective =
   let openedFileKey = "openedFiles"
   let openDirectiveMetadata = "openDirectiveMetadata"
   type OpenedFiles = string Set
 
+  open Parsers
+
   let parseOpenDirective =
-    let quotedString =
-      let unescapedChar = noneOf "\\\""
-
-      let escapedChar =
-          [ "\\\"", '"'
-            "\\\\", '\\'
-            "\\/", '/'
-            "\\b", '\b'
-            "\\f", '\f'
-            "\\n", '\n'
-            "\\r", '\r'
-            "\\t", '\t' ]
-          |> List.map (fun (toMatch, result) -> stringReturn toMatch result)
-          |> choice
-
-      let unicodeChar =
-          let convertToChar (s: string) =
-              System.Int32.Parse(s.Substring(2), System.Globalization.NumberStyles.HexNumber) |> char
-
-          regex @"\\u\d{4}" |>> convertToChar
-
-      let ochar = choice [ unescapedChar; escapedChar; unicodeChar ]
-
-      manyChars ochar |> between (pchar '"') (pchar '"')
-
-    let ident = identifier (IdentifierOptions())
-
-    let dotIdent =
-      sepBy1 ident (pchar '.') |>> String.concat "."
-
-    let parser =
       spaces >>. pchar '#' >>. (pstring "open" <|> pstring "o") >>. notFollowedBy ident
       >>. many (spaces >>. (dotIdent <|> quotedString))
       .>> spaces .>> eof
-
-    fun source ->
-      run parser source
-      |> function
-        | Success(paths, _, _) -> Some paths
-        | Failure _ -> None
+      |> runParser
 
   let openDirectiveMiddleware next (request, st) =
     let moduleNameOfPath (path: string) =
@@ -124,6 +126,8 @@ module OpenDirective =
           addMetadata response lines, paths |> Seq.fold addOpenedFile st 
       | _ -> next (request, st)
   
+module HelpDirective =
+  let helpDirectiveMiddleware next (request, st) = next (request, st)
 
 let viBindMiddleware next (request, st) = 
   let trimmed = request.Code.TrimStart()
