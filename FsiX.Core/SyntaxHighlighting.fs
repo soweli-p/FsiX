@@ -94,6 +94,10 @@ let matchBrackets lineLengths tokens =
     loop [] tokens
 
 let getFormatSpans (text: string) =
+    // FSharp.Compiler.WarnScopes.parseDirective crushes when the input quoted string is incomplete
+    let trimmed = text.TrimStart()
+    if trimmed.StartsWith("#nowarn") || trimmed.StartsWith("#warnon") then FSharpPlus.IReadOnlyCollection.empty
+    else
     let lineLengths = text.Split('\n') |> Seq.map (String.length >> (+) 1) |> Seq.toArray
     let tokens = ResizeArray()
     let noLexFilter = FSharpLexerFlags.Default &&& ~~~FSharpLexerFlags.UseLexFilter
