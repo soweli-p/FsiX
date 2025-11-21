@@ -96,7 +96,8 @@ let matchBrackets lineLengths tokens =
 let getFormatSpans (text: string) =
     let lineLengths = text.Split('\n') |> Seq.map (String.length >> (+) 1) |> Seq.toArray
     let tokens = ResizeArray()
-    FSharpLexer.Tokenize(SourceText.ofString text, tokens.Add)
+    let noLexFilter = FSharpLexerFlags.Default &&& ~~~FSharpLexerFlags.UseLexFilter
+    FSharpLexer.Tokenize(SourceText.ofString text, tokens.Add, flags = noLexFilter)
     seq {
         yield! tokens |> Seq.choose (toFormatSpan lineLengths)
         yield! matchBrackets lineLengths (List.ofSeq tokens)
