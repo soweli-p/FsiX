@@ -58,7 +58,7 @@ let private leftBracketsToRight, private rightBracketsToLeft =
           FSharpTokenKind.LeftBracket, FSharpTokenKind.RightBracket
           FSharpTokenKind.LeftBracketBar, FSharpTokenKind.BarRightBracket
           FSharpTokenKind.LeftParenthesis, FSharpTokenKind.RightParenthesis
-          FSharpTokenKind.LeftBracketLess, FSharpTokenKind.GreaterBarRightBracket
+          FSharpTokenKind.LeftBracketLess, FSharpTokenKind.GreaterRightBracket
           FSharpTokenKind.LeftQuote, FSharpTokenKind.RightQuote ]
     dict pairs, pairs |> Seq.map (fun (x, y) -> y, x) |> dict
 
