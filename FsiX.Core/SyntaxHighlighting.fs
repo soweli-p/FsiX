@@ -1,7 +1,5 @@
 module FsiX.SyntaxHighlighting
 
-open System.Collections.Generic
-
 open FSharp.Compiler.Text
 open FSharp.Compiler.Tokenization
 
@@ -53,10 +51,54 @@ let private toFormatSpan lineLengths (token: FSharpToken) =
     else if token.IsStringLiteral then mkSpan AnsiColor.Red
     else None
 
+let private leftBracketsToRight, private rightBracketsToLeft =
+    let pairs =
+        [ FSharpTokenKind.LeftBrace, FSharpTokenKind.RightBrace
+          FSharpTokenKind.LeftBraceBar, FSharpTokenKind.BarRightBrace
+          FSharpTokenKind.LeftBracket, FSharpTokenKind.RightBracket
+          FSharpTokenKind.LeftBracketBar, FSharpTokenKind.BarRightBracket
+          FSharpTokenKind.LeftParenthesis, FSharpTokenKind.RightParenthesis
+          FSharpTokenKind.LeftBracketLess, FSharpTokenKind.GreaterBarRightBracket
+          FSharpTokenKind.LeftQuote, FSharpTokenKind.RightQuote ]
+    dict pairs, pairs |> Seq.map (fun (x, y) -> y, x) |> dict
+
+let matchBrackets lineLengths tokens =
+    let rec loop (stack: FSharpToken list) (tokens: FSharpToken list) =
+        match tokens with
+        | [last] ->
+            match rightBracketsToLeft.TryGetValue(last.Kind) with
+            | true, expected ->
+                match stack with
+                | hd :: _ when hd.Kind = expected ->
+                    [hd; last]
+                    |> Seq.map (fun token ->
+                        FormatSpan(
+                            rangeToSpan lineLengths token.Range,
+                            ConsoleFormat(System.Nullable AnsiColor.BrightMagenta
+                        )))
+                | _ -> Seq.empty
+            | false, _ -> Seq.empty
+        | token :: restTokens ->
+            if leftBracketsToRight.ContainsKey(token.Kind) then
+                loop (token :: stack) restTokens
+            else
+                match rightBracketsToLeft.TryGetValue(token.Kind) with
+                | true, expected ->
+                    match stack with
+                    | [] -> Seq.empty
+                    | hd :: _ when hd.Kind <> expected -> Seq.empty
+                    | _ :: tl -> loop tl restTokens
+                | false, _ -> loop stack restTokens
+        | [] -> Seq.empty
+
+    loop [] tokens
+
 let getFormatSpans (text: string) =
     let lineLengths = text.Split('\n') |> Seq.map (String.length >> (+) 1) |> Seq.toArray
     let tokens = ResizeArray()
-    FSharpLexer.Tokenize(
-        SourceText.ofString text,
-        (fun token -> toFormatSpan lineLengths token |> Option.iter tokens.Add))
-    tokens :> IReadOnlyCollection<_>
+    FSharpLexer.Tokenize(SourceText.ofString text, tokens.Add)
+    seq {
+        yield! tokens |> Seq.choose (toFormatSpan lineLengths)
+        yield! matchBrackets lineLengths (List.ofSeq tokens)
+    }
+    |> FSharpPlus.IReadOnlyCollection.ofSeq
