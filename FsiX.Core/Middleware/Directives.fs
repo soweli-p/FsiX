@@ -127,7 +127,110 @@ module OpenDirective =
       | _ -> next (request, st)
   
 module HelpDirective =
-  let helpDirectiveMiddleware next (request, st) = next (request, st)
+  open System
+  open System.Reflection
+  [<AutoOpen>]
+  module private Reflection =
+    let fcs = sprintf "FSharp.Compiler.Interactive.FsiHelp+%s, FSharp.Compiler.Service"
+    let staticNonPublic = BindingFlags.Static ||| BindingFlags.NonPublic
+
+    let parserModule = Type.GetType(fcs "Parser")
+
+    let tryMkHelpMethod = parserModule.GetMethod("tryMkHelp", staticNonPublic)
+    let tryGetXmlDocumentMethod = parserModule.GetMethod("tryGetXmlDocument", staticNonPublic)
+
+  // Adapted from Compiler/Interactive/fsihelp.fs
+  module Expr =
+    open Microsoft.FSharp.Quotations.Patterns
+
+    let tryGetSourceName (methodInfo: MethodInfo) =
+        try
+            let attr = methodInfo.GetCustomAttribute<CompilationSourceNameAttribute>()
+            Some attr.SourceName
+        with _ ->
+            None
+
+    let getInfos (declaringType: Type) (sourceName: string option) (implName: string) =
+        let xmlPath = Path.ChangeExtension(declaringType.Assembly.Location, ".xml")
+        let xmlPath =
+          if File.Exists(xmlPath) |> not then
+            let rec times f n x = if n > 0 then times f (n - 1) (f x) else x
+            let dotnetPath = typeof<obj>.Assembly.Location |> times Path.GetDirectoryName 4
+            let frameworkVersion =
+              System.Text.RegularExpressions.Regex.Match(string Environment.Version, @"(\d+\.\d+).+").Groups[1] |> sprintf "net%O"
+            let refPath = Path.Combine(dotnetPath, "packs", "Microsoft.NETCore.App.Ref", string Environment.Version, "ref", frameworkVersion)
+            Path.Combine(refPath, Path.GetFileName(xmlPath))
+          else xmlPath
+        let xmlPath =
+          if File.Exists(xmlPath) |> not && Path.GetFileName(xmlPath) = "System.Private.CoreLib.xml" then
+            Path.Combine(Path.GetDirectoryName(xmlPath), "System.Runtime.xml")
+          else xmlPath
+        let xmlDoc = tryGetXmlDocumentMethod.Invoke(null, [|xmlPath|]) |> unbox<Xml.XmlDocument option>
+        let assembly = Path.GetFileName(declaringType.Assembly.Location)
+
+        // for FullName cases like Microsoft.FSharp.Core.FSharpOption`1[System.Object]
+        let fullName =
+            let idx = declaringType.FullName.IndexOf('[')
+
+            if idx >= 0 then
+                declaringType.FullName.Substring(0, idx)
+            else
+                declaringType.FullName
+
+        let fullName = fullName.Replace('+', '.') // for FullName cases like Microsoft.FSharp.Collections.ArrayModule+Parallel
+
+        (xmlDoc, assembly, fullName, implName, sourceName |> Option.defaultValue implName)
+
+    let rec exprNames expr =
+        match expr with
+        | Call(exprOpt, methodInfo, _exprList) ->
+            match exprOpt with
+            | Some _ -> None
+            | None ->
+                let sourceName = tryGetSourceName methodInfo
+                getInfos methodInfo.DeclaringType sourceName methodInfo.Name |> Some
+        | Lambda(_param, body) -> exprNames body
+        | Let(_, _, body) -> exprNames body
+        | Value(_o, t) -> getInfos t (Some t.Name) t.Name |> Some
+        | DefaultValue t -> getInfos t (Some t.Name) t.Name |> Some
+        | PropertyGet(_o, info, _) -> getInfos info.DeclaringType (Some info.Name) info.Name |> Some
+        | NewUnionCase(info, _exprList) -> getInfos info.DeclaringType (Some info.Name) info.Name |> Some
+        | NewObject(ctorInfo, _e) -> getInfos ctorInfo.DeclaringType (Some ctorInfo.Name) ctorInfo.Name |> Some
+        | NewArray(t, _exprs) -> getInfos t (Some t.Name) t.Name |> Some
+        | NewTuple _ ->
+            let ty = typeof<_ * _>
+            getInfos ty (Some ty.Name) ty.Name |> Some
+        | NewStructTuple _ ->
+            let ty = typeof<struct (_ * _)>
+            getInfos ty (Some ty.Name) ty.Name |> Some
+        | _ -> None
+
+  open Parsers
+  open FSharp.Compiler.Interactive
+
+  let parseHelpDirective =
+      spaces >>. pchar '#' >>. (pstring "help" <|> pstring "h") >>. notFollowedBy ident
+      >>. spaces >>. (dotIdent <|> quotedString)
+      .>> spaces .>> eof
+      |> runParser
+
+  let helpDirectiveMiddleware next (request, st) =
+    let failMsg = "unable to get documentation"
+    match parseHelpDirective request.Code with
+    | Some code ->
+      match st.Session.EvalExpressionDirectly($"<@@ {code} @@>") with
+      | Some(:? FSharp.Quotations.Expr as e) ->
+        match Expr.exprNames e with
+        | Some(xmlDocument: Xml.XmlDocument option, assembly: string, modName: string, implName: string, sourceName: string) ->
+          tryMkHelpMethod.Invoke(null, [| xmlDocument; assembly; modName; implName; sourceName |])
+          |> unbox<FsiHelp.Parser.Help voption>
+          |> ValueOption.map _.ToDisplayString()
+          |> ValueOption.defaultValue failMsg
+        | _ -> failMsg
+      | _ -> failMsg
+      |> st.OutStream.WriteLine
+      next ({request with Code = ""}, st)
+    | None -> next (request, st)
 
 let viBindMiddleware next (request, st) = 
   let trimmed = request.Code.TrimStart()
