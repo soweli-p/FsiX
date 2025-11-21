@@ -105,10 +105,13 @@ module Directives =
                 let lastPart = textList |> Seq.skip carret |> Seq.takeWhile (fun c -> c <> ' ')
                 Seq.append (Seq.rev firstPart) lastPart |> String.ofSeq
 
+            let trimmed = text.TrimStart()
             let isDirectory =
-               text |> String.contains Path.DirectorySeparatorChar
-               || text.StartsWith "#open"
-               || text.StartsWith ":open"
+               trimmed |> String.contains Path.DirectorySeparatorChar
+               || trimmed.StartsWith "#open"
+               || trimmed.StartsWith ":open"
+               || trimmed.StartsWith "#load"
+               || trimmed.StartsWith ":load"
             if isDirectory then
                 let currentDir = [|Directory.GetCurrentDirectory(); Path.GetDirectoryName currentWord |] |> Path.Combine
                 if Directory.Exists currentDir then
