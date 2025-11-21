@@ -1,5 +1,7 @@
 module FsiX.SyntaxHighlighting
 
+open System
+
 open FSharp.Compiler.Text
 open FSharp.Compiler.Tokenization
 
@@ -42,7 +44,7 @@ let private rangeToSpan lineLengths (r: range) =
 
 let private toFormatSpan lineLengths (token: FSharpToken) =
     let mkSpan (color: AnsiColor) =
-        FormatSpan(rangeToSpan lineLengths token.Range, ConsoleFormat(System.Nullable color))
+        FormatSpan(rangeToSpan lineLengths token.Range, ConsoleFormat(Nullable color))
         |> Some
     if token.IsIdentifier then mkSpan AnsiColor.BrightBlue
     else if token.IsControlKeyword then mkSpan AnsiColor.BrightRed
@@ -64,6 +66,11 @@ let private leftBracketsToRight, private rightBracketsToLeft =
 
 let matchBrackets lineLengths tokens =
     let rec loop (stack: FSharpToken list) (tokens: FSharpToken list) =
+        let error range rest =
+            seq {
+                FormatSpan(rangeToSpan lineLengths range, ConsoleFormat(Nullable AnsiColor.Red))
+                yield! loop stack rest
+            }
         match tokens with
         | [last] ->
             match rightBracketsToLeft.TryGetValue(last.Kind) with
@@ -74,9 +81,9 @@ let matchBrackets lineLengths tokens =
                     |> Seq.map (fun token ->
                         FormatSpan(
                             rangeToSpan lineLengths token.Range,
-                            ConsoleFormat(System.Nullable AnsiColor.BrightMagenta
+                            ConsoleFormat(Nullable AnsiColor.BrightMagenta
                         )))
-                | _ -> Seq.empty
+                | _ -> error last.Range []
             | false, _ -> Seq.empty
         | token :: restTokens ->
             if leftBracketsToRight.ContainsKey(token.Kind) then
@@ -85,8 +92,8 @@ let matchBrackets lineLengths tokens =
                 match rightBracketsToLeft.TryGetValue(token.Kind) with
                 | true, expected ->
                     match stack with
-                    | [] -> Seq.empty
-                    | hd :: _ when hd.Kind <> expected -> Seq.empty
+                    | [] -> error token.Range restTokens
+                    | hd :: _ when hd.Kind <> expected -> error token.Range restTokens
                     | _ :: tl -> loop tl restTokens
                 | false, _ -> loop stack restTokens
         | [] -> Seq.empty
