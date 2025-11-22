@@ -154,6 +154,7 @@ let rewriteParsedExpr (parsed: Oak) =
 
             ComputationExpressionStatement.OtherStatement newStatement
         | ComputationExpressionStatement.OtherStatement e -> mapExpr e |> ComputationExpressionStatement.OtherStatement
+        | e -> e
 
     let mapDecl =
         function
@@ -178,7 +179,7 @@ let rewriteCompExpr code =
                 return code
             else
                 let rewrittenAst = rewriteParsedExpr parsed.tree
-                let! code = CodeFormatter.FormatOakAsync rewrittenAst |>> String.trimEnd " \n"
+                let! code = CodeFormatter.FormatOakAsync rewrittenAst |>> String.trimEnd " \r\n"
 
                 let logCode code = 
                   Logging.logInfo $"Rewriting user computation expresison input to: \n {code}"

@@ -3,12 +3,16 @@
 open System.Collections.Generic
 open System.IO
 
+open FSharp.Compiler.Text
+open FSharp.Compiler.Tokenization
+
 open FsiX.Features
 open FsiX.Middleware
 open FsiX.ProjectLoading
 open FsiX.AppState
 open PrettyPrompt.Completion
-
+open PrettyPrompt.Highlighting
+open PrettyPrompt.Documents
 
 type FsiCallBacks(app: MailboxProcessor<AppState.Command>) =
     inherit PrettyPrompt.PromptCallbacks()
@@ -22,6 +26,10 @@ type FsiCallBacks(app: MailboxProcessor<AppState.Command>) =
               :> IReadOnlyList<CompletionItem>
         }
 
+    override _.HighlightCallbackAsync (text: string, cancellationToken: System.Threading.CancellationToken) =
+        app.PostAndAsyncReply(fun r -> SyntaxHighlight(text, r))
+        |> Async.StartAsTask
+
 let main useAsp args () =
     task {
         let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
@@ -29,8 +37,10 @@ let main useAsp args () =
             let sln = loadSolution parsedArgs
             AppState.mkAppStateActor useAsp sln
         let middleware = [
-          Directives.viBindMiddleware
+          Directives.HelpDirective.helpDirectiveMiddleware
           Directives.OpenDirective.openDirectiveMiddleware
+          Directives.HelpDirective.htypeDirectiveMiddleware
+          Directives.viBindMiddleware
           ComputationExpression.compExprMiddleware
         ]
         appActor.Post(AddMiddleware middleware)
@@ -51,7 +61,11 @@ let main useAsp args () =
                   let response = appActor.PostAndReply(fun r -> Command.Eval(request, userLine.CancellationToken, r))
                   for m in response.Metadata.Values do
                     Utils.Logging.logInfo m
-            with _ -> ()
+                  match response.Result with
+                  | Error (:? FSharp.Compiler.Interactive.Shell.FsiCompilationException, _) -> ()
+                  | Error (e, s) -> printfn "%A\n%s" e s
+                  | Ok _ -> ()
+            with ex -> printfn "%A" ex
 
     }
 
