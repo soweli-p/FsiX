@@ -135,14 +135,15 @@ module HelpDirective =
     let staticNonPublic = BindingFlags.Static ||| BindingFlags.NonPublic
 
     let parserModule = Type.GetType(fcs "Parser")
+    let operatorModule = Type.GetType("Microsoft.FSharp.Core.Operators, FSharp.Core")
 
     let tryMkHelpMethod = parserModule.GetMethod("tryMkHelp", staticNonPublic)
     let tryGetXmlDocumentMethod = parserModule.GetMethod("tryGetXmlDocument", staticNonPublic)
+    let raiseMethod = operatorModule.GetMethod("Raise").MakeGenericMethod([|typeof<obj>|])
 
+  open Microsoft.FSharp.Quotations.Patterns
   // Adapted from Compiler/Interactive/fsihelp.fs
   module Expr =
-    open Microsoft.FSharp.Quotations.Patterns
-
     let tryGetSourceName (methodInfo: MethodInfo) =
         try
             let attr = methodInfo.GetCustomAttribute<CompilationSourceNameAttribute>()
@@ -150,15 +151,17 @@ module HelpDirective =
         with _ ->
             None
 
+    let refPath =
+      let rec times f n x = if n > 0 then times f (n - 1) (f x) else x
+      let dotnetPath = typeof<obj>.Assembly.Location |> times Path.GetDirectoryName 4
+      let frameworkVersion =
+        System.Text.RegularExpressions.Regex.Match(string Environment.Version, @"(\d+\.\d+).+").Groups[1] |> sprintf "net%O"
+      Path.Combine(dotnetPath, "packs", "Microsoft.NETCore.App.Ref", string Environment.Version, "ref", frameworkVersion)
+
     let getInfos (declaringType: Type) (sourceName: string option) (implName: string) =
         let xmlPath = Path.ChangeExtension(declaringType.Assembly.Location, ".xml")
         let xmlPath =
           if File.Exists(xmlPath) |> not then
-            let rec times f n x = if n > 0 then times f (n - 1) (f x) else x
-            let dotnetPath = typeof<obj>.Assembly.Location |> times Path.GetDirectoryName 4
-            let frameworkVersion =
-              System.Text.RegularExpressions.Regex.Match(string Environment.Version, @"(\d+\.\d+).+").Groups[1] |> sprintf "net%O"
-            let refPath = Path.Combine(dotnetPath, "packs", "Microsoft.NETCore.App.Ref", string Environment.Version, "ref", frameworkVersion)
             Path.Combine(refPath, Path.GetFileName(xmlPath))
           else xmlPath
         let xmlPath =
@@ -219,6 +222,10 @@ module HelpDirective =
     match parseHelpDirective request.Code with
     | Some code ->
       match st.Session.EvalExpressionDirectly($"<@@ {code} @@>") with
+      // Evaluates to a Call(None, Raise, Value 1) when compilation fails
+      | Some(:? FSharp.Quotations.Expr as Call(None, m, [Value(:? int as 1, _)]))
+        when m = raiseMethod ->
+        failMsg
       | Some(:? FSharp.Quotations.Expr as e) ->
         match Expr.exprNames e with
         | Some(xmlDocument: Xml.XmlDocument option, assembly: string, modName: string, implName: string, sourceName: string) ->
