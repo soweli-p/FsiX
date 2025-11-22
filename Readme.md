@@ -13,9 +13,9 @@ https://github.com/user-attachments/assets/fb14365c-758a-4603-b729-94e2eebe006d
 ---
 ## ✨ Features
 
-- **Project & Solution Support** (`*.fsproj` / `*.sln`)  
+- **Project & Solution Support** (`*.fsproj` / `*.sln` / `*.slnx`)  
   No need to manually reference DLLs or NuGets.  
-  FsiX automatically detects your project structure and loads everything for you.
+  Thanks to [proj-info](https://github.com/ionide/proj-info/), FsiX automatically detects your project structure and loads everything for you.
 
 - **Hot Reloading**  
 
@@ -83,9 +83,9 @@ in the root dir of your project
    FsiX will also load on start `.repl.fsix` file if it's present in current dir.
 
 ### 📌 Future features
-- Integration with [Conjure](https://github.com/Olical/conjure)
-- (Maybe) [n-repl](https://nrepl.org/nrepl/index.html) support
-- Ability to add REPL to any of your projects just as library
+- fsix-daemon service which will use json-rpc protocol to communicate with any repl frontend
+- vscode notebooks frontend
+- ability to add REPL to any of your projects just as library
 
 
 ## 🤝 Contributing
