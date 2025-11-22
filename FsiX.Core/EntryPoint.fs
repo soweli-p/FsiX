@@ -39,6 +39,7 @@ let main useAsp args () =
         let middleware = [
           Directives.HelpDirective.helpDirectiveMiddleware
           Directives.OpenDirective.openDirectiveMiddleware
+          Directives.HelpDirective.htypeDirectiveMiddleware
           Directives.viBindMiddleware
           ComputationExpression.compExprMiddleware
         ]

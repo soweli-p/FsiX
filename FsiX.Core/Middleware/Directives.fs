@@ -129,6 +129,8 @@ module OpenDirective =
 module HelpDirective =
   open System
   open System.Reflection
+  open System.Text.RegularExpressions
+
   [<AutoOpen>]
   module private Reflection =
     let fcs = sprintf "FSharp.Compiler.Interactive.FsiHelp+%s, FSharp.Compiler.Service"
@@ -155,7 +157,7 @@ module HelpDirective =
       let rec times f n x = if n > 0 then times f (n - 1) (f x) else x
       let dotnetPath = typeof<obj>.Assembly.Location |> times Path.GetDirectoryName 4
       let frameworkVersion =
-        System.Text.RegularExpressions.Regex.Match(string Environment.Version, @"(\d+\.\d+).+").Groups[1] |> sprintf "net%O"
+        Regex.Match(string Environment.Version, @"(\d+\.\d+).+").Groups[1] |> sprintf "net%O"
       Path.Combine(dotnetPath, "packs", "Microsoft.NETCore.App.Ref", string Environment.Version, "ref", frameworkVersion)
 
     let getInfos (declaringType: Type) (sourceName: string option) (implName: string) =
@@ -211,14 +213,18 @@ module HelpDirective =
   open Parsers
   open FSharp.Compiler.Interactive
 
-  let parseHelpDirective =
-      spaces >>. pchar '#' >>. (pstring "help" <|> pstring "h") >>. notFollowedBy ident
+  let mkParse names =
+      spaces >>. pchar '#' >>. (names |> Seq.map pstring |> choice) >>. notFollowedBy ident
       >>. spaces >>. (dotIdent <|> quotedString)
       .>> spaces .>> eof
       |> runParser
 
+  let parseHelpDirective = mkParse ["help"; "h"]
+  let parseHtypeDirective = mkParse ["htype"]
+
+  let failMsg = "unable to get documentation"
+  
   let helpDirectiveMiddleware next (request, st) =
-    let failMsg = "unable to get documentation"
     match parseHelpDirective request.Code with
     | Some code ->
       match st.Session.EvalExpressionDirectly($"<@@ {code} @@>") with
@@ -228,12 +234,33 @@ module HelpDirective =
         failMsg
       | Some(:? FSharp.Quotations.Expr as e) ->
         match Expr.exprNames e with
-        | Some(xmlDocument: Xml.XmlDocument option, assembly: string, modName: string, implName: string, sourceName: string) ->
+        | Some(xmlDocument, assembly, modName, implName, sourceName) ->
           tryMkHelpMethod.Invoke(null, [| xmlDocument; assembly; modName; implName; sourceName |])
           |> unbox<FsiHelp.Parser.Help voption>
           |> ValueOption.map _.ToDisplayString()
           |> ValueOption.defaultValue failMsg
         | _ -> failMsg
+      | _ -> failMsg
+      |> st.OutStream.WriteLine
+      next ({request with Code = ""}, st)
+    | None -> next (request, st)
+
+  let htypeDirectiveMiddleware next (request, st) =
+    match parseHtypeDirective request.Code with
+    | Some code ->
+      match st.Session.EvalExpressionDirectly($"typeof<{code}>") with
+      | Some(:? Type as t) ->
+        let xmlDocument, assembly, modName, _, sourceName = Expr.getInfos t None t.Name
+        // Assume it's scoped in a namespace
+        let m = Regex.Match(modName, @"^(.+?)\.([^\.]+)$")
+        if m.Success then
+          let modName = string m.Groups[1]
+          let implName = string m.Groups[2]
+          tryMkHelpMethod.Invoke(null, [| xmlDocument; assembly; modName; implName; sourceName |])
+          |> unbox<FsiHelp.Parser.Help voption>
+          |> ValueOption.map _.ToDisplayString()
+          |> ValueOption.defaultValue failMsg
+        else failMsg
       | _ -> failMsg
       |> st.OutStream.WriteLine
       next ({request with Code = ""}, st)
