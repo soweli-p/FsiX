@@ -11,6 +11,13 @@ open PrettyPrompt.Highlighting
 
 open FSharpPlus
 
+type CompletionItem = {
+  DisplayText: string
+  ReplacementText: string
+  Kind: string
+  GetFormattedDescription: (unit -> FormattedString option)
+}
+
 let scoreCandidate (enteredWord: string) (candidate: string) =
     seq {
         if candidate.StartsWith enteredWord then
@@ -21,48 +28,49 @@ let scoreCandidate (enteredWord: string) (candidate: string) =
     }
     |> Seq.sum
 
-let mkDeclInfo (fsiSession: Shell.FsiEvaluationSession) text caret =
-    let l = QuickParse.GetPartialLongNameEx(text, caret - 1)
-    let parse, typed, _ = fsiSession.ParseAndCheckInteraction text
-    let declList = typed.GetDeclarationListInfo(Some parse, 1, text, l)
-    declList.Items
+module FsCompletions =
+  let mkDeclInfo (fsiSession: Shell.FsiEvaluationSession) text caret =
+      let l = QuickParse.GetPartialLongNameEx(text, caret - 1)
+      let parse, typed, _ = fsiSession.ParseAndCheckInteraction text
+      let declList = typed.GetDeclarationListInfo(Some parse, 1, text, l)
+      declList.Items
 
-let getFsCompletions (fsiSession: Shell.FsiEvaluationSession) text caret word =
-    let declItems = mkDeclInfo fsiSession text caret
+  let getFsCompletions (fsiSession: Shell.FsiEvaluationSession) text caret word =
+      let declItems = mkDeclInfo fsiSession text caret
 
-    let mkCompletionItem (declInfo: DeclarationListItem) =
-        let getDocs () =
-            let tagToColor =
-                function
-                | TextTag.Keyword -> AnsiColor.Blue
-                | TextTag.Function -> AnsiColor.Cyan
-                | _ -> AnsiColor.White
+      let mkCompletionItem (declInfo: DeclarationListItem) =
+          let getDocs () =
+              let tagToColor =
+                  function
+                  | TextTag.Keyword -> AnsiColor.Blue
+                  | TextTag.Function -> AnsiColor.Cyan
+                  | _ -> AnsiColor.White
 
-            let mkSpan (builder: FormattedStringBuilder) (tag: TaggedText) =
-                builder.Append(tag.Text, FormatSpan(0, tag.Text.Length, tagToColor tag.Tag))
+              let mkSpan (builder: FormattedStringBuilder) (tag: TaggedText) =
+                  builder.Append(tag.Text, FormatSpan(0, tag.Text.Length, tagToColor tag.Tag))
 
-            declInfo.Description
-            |> (fun (ToolTipText elems) -> elems)
-            |> Seq.collect (function
-                | ToolTipElement.Group e -> e
-                | _ -> [])
-            |> Seq.head
-            |> _.MainDescription
-            |> Seq.fold mkSpan (FormattedStringBuilder())
-            |> _.ToFormattedString()
+              declInfo.Description
+              |> (fun (ToolTipText elems) -> elems)
+              |> Seq.collect (function
+                  | ToolTipElement.Group e -> e
+                  | _ -> [])
+              |> Seq.tryHead
+              |>> _.MainDescription
+              |>> Seq.fold mkSpan (FormattedStringBuilder())
+              |>> _.ToFormattedString()
 
-        CompletionItem(
-            replacementText = declInfo.NameInCode,
-            getExtendedDescription = (fun _ -> Task.FromResult(getDocs ())),
-            displayText = declInfo.NameInList
-        )
+          
+          {
+            CompletionItem.DisplayText = declInfo.NameInList
+            ReplacementText = declInfo.NameInCode
+            Kind = declInfo.Kind.ToString()
+            GetFormattedDescription = getDocs
+          }
 
-    declItems
-    |> Seq.sortByDescending (fun symbol -> scoreCandidate word symbol.NameInCode)
-    |> Seq.map mkCompletionItem
-    |> Seq.toList
+      declItems
+      |> Seq.map mkCompletionItem
 
-module Directives =
+module DirectiveCompletions =
     let directives =
         Set
             [ "reference"
@@ -88,10 +96,13 @@ module Directives =
     let commandCompletions (text: string) carret (wordToReplace: string) = 
         if not <| String.contains ' ' text then
             directives
-            |> Seq.sortByDescending (fun keyword -> scoreCandidate wordToReplace keyword)
             |> Seq.map (fun keyword ->
-                CompletionItem(replacementText = mkReplacement wordToReplace keyword, displayText = keyword))
-            |> Seq.toList
+              {
+                CompletionItem.DisplayText = keyword
+                ReplacementText = mkReplacement wordToReplace keyword
+                Kind = "Keyword"
+                GetFormattedDescription = konst None
+              })
         else
             let currentWord =
                 let textList = String.toList text
@@ -116,9 +127,13 @@ module Directives =
                     |> Seq.append (Directory.EnumerateDirectories currentDir |> Seq.map (fun d -> d + "/"))
                     |> Seq.map (fun e -> Path.GetRelativePath(currentDir, e))
                     //|> Seq.map (mkReplacement currentWord)
-                    |> Seq.sortByDescending (fun fsEntry -> scoreCandidate wordToReplace fsEntry)
-                    |> Seq.map (fun fsEntry -> CompletionItem(replacementText = fsEntry, displayText = fsEntry))
-                    |> Seq.toList
+                    |> Seq.map (fun fsEntry -> 
+                      {
+                        CompletionItem.DisplayText = fsEntry
+                        ReplacementText = fsEntry
+                        Kind = if fsEntry.EndsWith "/" then "Folder" else "File"
+                        GetFormattedDescription = konst None
+                      })
                 else
                     []
             else
@@ -126,8 +141,13 @@ module Directives =
 
 
 let getCompletions session text carret word =
+    let sortCompletions = 
+      Seq.sortByDescending (fun c -> scoreCandidate word c.ReplacementText)
+      >> Seq.truncate 50
+      >> Seq.toList
     match String.tryHead text with
     | Some ':'
-    | Some '#' -> Directives.commandCompletions text carret word
-    | Some _ -> getFsCompletions session text carret word
+    | Some '#' -> DirectiveCompletions.commandCompletions text carret word |> sortCompletions
+    | Some _ -> FsCompletions.getFsCompletions session text carret word |> sortCompletions
     | None -> []
+

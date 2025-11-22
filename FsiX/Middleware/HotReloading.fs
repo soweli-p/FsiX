@@ -120,6 +120,7 @@ let getOpenModules replCode st =
     String.split [" "; "\n"] replCode
     |> Seq.filter ((<>) "")
     |> Seq.chunkBySize 2
+    |> Seq.filter (fun arr -> arr.Length >= 2)
     |> Seq.filter (Array.tryHead >> Option.map ((=) "open") >> Option.defaultValue false)
     |> Seq.map (fun arr -> arr[1])
     |> Seq.toList
@@ -139,8 +140,9 @@ let hotReloadingMiddleware next (request, st: AppState) =
   match request with
   | {Args = m} when shouldRunHotReload m ->
       let response, st = next (request, st)
-      if response.Error.IsSome then response, st
-      else
+      match response.EvaluationResult with 
+      | Result.Error _ -> response, st
+      | Ok _ ->
       let asm = st.Session.DynamicAssemblies |> Array.last
       let reloadingSt, updatedMethods =
         getReloadingState st

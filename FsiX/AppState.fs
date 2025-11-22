@@ -76,20 +76,21 @@ type AppState = {
   }
 
 
+type DiagnosticSeverity = Error | Hidden | Info | Warning
 type Diagnostic = {
   Message: string
   Subcategory: string
-  Severity: FSharpDiagnosticSeverity } with
+  Severity: DiagnosticSeverity } with
   static member mkDiagnostic (fsDiagnostic: FSharpDiagnostic) =
     let mapSeverity = function
-      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Error -> FSharpDiagnosticSeverity.Error
-      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Hidden -> FSharpDiagnosticSeverity.Hidden
-      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Info -> FSharpDiagnosticSeverity.Info
-      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Warning -> FSharpDiagnosticSeverity.Warning
+      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Error -> Error
+      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Hidden -> Hidden
+      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Info -> Info
+      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Warning -> Warning
     {Message = fsDiagnostic.Message; Severity = mapSeverity fsDiagnostic.Severity; Subcategory = fsDiagnostic.Subcategory}
+
 type EvalResponse = {
-  ResultOutput: string
-  Error: Exception option
+  EvaluationResult: Result<string, Exception>
   Diagnostics: Diagnostic array
   EvaluatedCode: string
   Metadata: Map<string, obj>
@@ -101,24 +102,42 @@ type Middleware = MiddlewareNext -> EvalRequest * AppState -> EvalResponse * App
 
 type Command = 
   | Eval of EvalRequest * CancellationToken * AsyncReplyChannel<EvalResponse>
-  | Autocomplete of text: string * caret: int * word: string * AsyncReplyChannel<list<Completion.CompletionItem>>
+  | Autocomplete of text: string * caret: int * word: string * AsyncReplyChannel<list<AutoCompletion.CompletionItem>>
   | GetConfiguration of AsyncReplyChannel<PromptConfiguration>
   | AddMiddleware of Middleware list
 
 
+let wrapErrorMiddleware next (request, st) =
+  try 
+    next (request, st)
+  with e -> 
+    let errResponse = {
+      EvaluationResult = Result.Error <| new Exception("FsiXInternal error occured", e)
+      Diagnostics = [||]
+      EvaluatedCode = ""
+      Metadata = Map.empty
+    }
+    errResponse, st
+
+
+//fold - first m in list would be the closest to eval
+//foldBack - last m in list would be the closest to eval
+//better to use foldBack as we can simply push new m's and it's more intuitive that 
+//the last m would evaluate the latest
 let buildPipeline (middleware : Middleware list) evalFn =
-  List.fold (fun next m -> m next) evalFn middleware
+  List.foldBack (fun m next -> m next) middleware evalFn
 let evalFn token = 
   fun ({Code = code; }, st) ->
     st.OutStream.StartRecording()
     let evalRes, diagnostics = st.Session.EvalInteractionNonThrowing(code, token)
-    let error =
-      match evalRes with
-      | Choice1Of2 _ -> None
-      | Choice2Of2 ex -> Some ex
-    let resText = st.OutStream.StopRecording()
     let diagnostics = diagnostics |> Array.map Diagnostic.mkDiagnostic
-    {ResultOutput = resText; Error = error; Diagnostics = diagnostics; Metadata = Map.empty; EvaluatedCode = code}, st
+    let evalRes = 
+      match evalRes with
+      | Choice1Of2 _ -> Ok <| st.OutStream.StopRecording()
+      | Choice2Of2 ex -> Result.Error <| ex
+
+    st.OutStream.StopRecording() |> ignore
+    {EvaluationResult = evalRes; Diagnostics = diagnostics; Metadata = Map.empty; EvaluatedCode = code}, st
 let mkAppStateActor (logger: ILogger) outStream useAsp sln = MailboxProcessor.Start(fun mailbox ->
   let rec loop st middleware = async {
     let! cmd = mailbox.Receive()
@@ -136,12 +155,12 @@ let mkAppStateActor (logger: ILogger) outStream useAsp sln = MailboxProcessor.St
 
       return! loop st middleware
     | Eval (request, token, reply) -> 
-      let pipeline = buildPipeline middleware (evalFn token)
+      let pipeline = buildPipeline (wrapErrorMiddleware :: middleware) (evalFn token)
       let res, newSt = pipeline (request, st)
       reply.Reply res
       return! loop newSt middleware
     | AddMiddleware additionalMiddleware -> 
-      return! loop st (middleware @ additionalMiddleware)
+      return! loop st (additionalMiddleware @ middleware)
   }
   and init () = async {
     logger.LogInfo "Welcome to FsiX!"
@@ -182,6 +201,7 @@ let mkAppStateActor (logger: ILogger) outStream useAsp sln = MailboxProcessor.St
               OutStream = recorder
               Custom = Map.empty}
 
+    logger.LogDebug("Done!")
     return! loop st []
   }
   init ()

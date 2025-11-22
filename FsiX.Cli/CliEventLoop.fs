@@ -11,6 +11,7 @@ open FsiX.AppState
 open FsiX.Utils
 open PrettyPrompt.Completion
 open FsiX
+open System.Threading.Tasks
 
 type CliLogger() =
     interface ILogger with
@@ -19,6 +20,7 @@ type CliLogger() =
         member this.LogError s = Logging.logError s
         member this.LogWarning s = Logging.logWarning s
 
+open FSharpPlus
 type FsiCallBacks(app: MailboxProcessor<AppState.Command>) =
     inherit PrettyPrompt.PromptCallbacks()
 
@@ -26,47 +28,60 @@ type FsiCallBacks(app: MailboxProcessor<AppState.Command>) =
     override _.GetCompletionItemsAsync(text, caret, spanToBeReplaced, _) =
         task {
             let typedWord = text.Substring(spanToBeReplaced.Start, spanToBeReplaced.Length)
-            return 
-              app.PostAndReply(fun r -> Autocomplete(text, caret, typedWord, r))
+            let! items = app.PostAndAsyncReply(fun r -> Autocomplete(text, caret, typedWord, r)) |> Async.StartAsTask
+            return
+              items
+              |> List.map (fun i ->
+                CompletionItem(replacementText=i.ReplacementText, displayText=i.DisplayText, 
+                  getExtendedDescription=(
+                    konst () 
+                    >> i.GetFormattedDescription
+                    >> Option.defaultValue (new PrettyPrompt.Highlighting.FormattedString()) 
+                    >> Task.FromResult)
+                )
+              )
               :> IReadOnlyList<CompletionItem>
         }
 
-let runCliEventLoop useAsp args () =
-    task {
-        let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
-        let appActor =
-            let sln = loadSolution parsedArgs
-            AppState.mkAppStateActor (CliLogger()) stdout useAsp sln
-        let middleware = [
-          Directives.viBindMiddleware
-          Directives.OpenDirective.openDirectiveMiddleware
-          ComputationExpression.compExprMiddleware
-          HotReloading.hotReloadingMiddleware
-        ]
-        appActor.Post(AddMiddleware middleware)
+let runCliEventLoop useAsp args () = task {
+  let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
+  let logger: ILogger = CliLogger()
+  let appActor =
+    let sln = loadSolution parsedArgs
+    AppState.mkAppStateActor logger stdout useAsp sln
+  let middleware = [
+    Directives.viBindMiddleware
+    Directives.OpenDirective.openDirectiveMiddleware
+    ComputationExpression.compExprMiddleware
+    HotReloading.hotReloadingMiddleware
+  ]
+  appActor.Post(AddMiddleware middleware)
 
-        let config = appActor.PostAndReply GetConfiguration
+  let config = appActor.PostAndReply GetConfiguration
 
-        let prompt =
-            PrettyPrompt.Prompt(
-                persistentHistoryFilepath = "./.fsix_history",
-                callbacks = FsiCallBacks appActor,
-                configuration = config
-            )
-        while true do
-            try
-                let! userLine = prompt.ReadLineAsync()
-                if userLine.IsSuccess then
-                  let request = {Code = userLine.Text; Args = Map.empty } 
-                  let response = appActor.PostAndReply(fun r -> Command.Eval(request, userLine.CancellationToken, r))
-                  for d in response.Diagnostics do
-                      match d.Severity with
-                      | FSharpDiagnosticSeverity.Info -> Logging.logInfo d.Message
-                      | FSharpDiagnosticSeverity.Hidden -> Logging.logDebug d.Message
-                      | FSharpDiagnosticSeverity.Warning -> Logging.logWarning d.Message
-                      | FSharpDiagnosticSeverity.Error -> Logging.logError d.Message
+  let prompt =
+      PrettyPrompt.Prompt(
+          persistentHistoryFilepath = "./.fsix_history",
+          callbacks = FsiCallBacks appActor,
+          configuration = config
+      )
+  while true do
+      try
+          let! userLine = prompt.ReadLineAsync()
+          if userLine.IsSuccess then
+            let request = {Code = userLine.Text; Args = Map.empty } 
+            let! response = appActor.PostAndAsyncReply(fun r -> Command.Eval(request, userLine.CancellationToken, r))
+            for d in response.Diagnostics do
+                match d.Severity with
+                | Info -> Logging.logInfo d.Message
+                | Hidden -> Logging.logDebug d.Message
+                | Warning -> Logging.logWarning d.Message
+                | Error -> Logging.logError d.Message
+            match response.EvaluationResult with 
+            | Ok _ -> () //do nothing as TextWriterRecorder will print colored result
+            | Result.Error e -> logger.LogError <| e.ToString()
 
-            with _ -> ()
+      with _ -> ()
 
-    }
+}
 
