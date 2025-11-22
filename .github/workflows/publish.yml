@@ -33,12 +33,55 @@ jobs:
 
     - name: Pack
       run: dotnet pack -c Release /p:ContinuousIntegrationBuild=true
-      
-    # publish to nuget
-    - name: Publish
+
+    - name: Collect artifacts
       run: |
-        cd FsiX.Cli/nupkg
-        dotnet nuget push FsiX.*.nupkg --api-key ${{steps.login.outputs.NUGET_API_KEY}} --source https://api.nuget.org/v3/index.json
-        cd ../../FsiX.Cli.Web/nupkg
-        dotnet nuget push FsiX.Cli.Web.*.nupkg --api-key ${{steps.login.outputs.NUGET_API_KEY}} --source https://api.nuget.org/v3/index.json
+        mkdir release
+        cp FsiX.Cli/nupkg/*.nupkg release/
+        cp FsiX.Cli.Web/nupkg/*.nupkg release/
+      
+        
+    - name: Get version from tag
+      id: tag_name
+      run: |
+        unpatched_version=${GITHUB_REF#refs/tags/} # gives v*.*.*-*
+        patched_version=${raw_version%%-*} # gives v*.*.*
+        echo "current_version=$patched_version" >> $GITHUB_OUTPUT
+    - name: Get Changelog Entry
+      id: changelog_reader
+      uses: mindsers/changelog-reader-action@v2
+      with:
+        validation_level: warn
+        version: ${{ steps.tag_name.outputs.current_version }}
+        path: ./CHANGELOG.md
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@latest
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: ${{ github.ref }}
+        body: ${{ steps.changelog_reader.outputs.changes }}
+        draft: false
+        prerelease: false
+    - name: Upload binaries to release
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: release/*.nupkg
+        tag: ${{ github.ref }}
+        overwrite: true
+        file_glob: true
+
+
+    - name: Publish to GitHub Packages
+      run: |
+        dotnet nuget push release/*.nupkg \
+          --api-key ${{ github.token }} \
+          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+    - name: Publish to NuGet
+      run: |
+        dotnet nuget push release/*.nupkg --api-key ${{steps.login.outputs.NUGET_API_KEY}} --source https://api.nuget.org/v3/index.json
       shell: bash
