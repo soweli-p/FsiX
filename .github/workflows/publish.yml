@@ -6,7 +6,9 @@ on:
     - "v[0-9]+.*"
 
 jobs:
-  build:
+  build-and-publish:
+    permissions:
+      id-token: write
 
     runs-on: ubuntu-latest
 
@@ -22,6 +24,13 @@ jobs:
     - name: Dotnet Installation Info
       run: dotnet --info
       
+      # Get a short-lived NuGet API key
+    - name: NuGet login (OIDC → temp API key)
+      uses: NuGet/login@v1
+      id: login
+      with:
+        user: Soweli
+
     - name: Pack
       run: dotnet pack -c Release /p:ContinuousIntegrationBuild=true
       
@@ -29,7 +38,7 @@ jobs:
     - name: Publish
       run: |
         cd FsiX.Cli/nupkg
-        dotnet nuget push FsiX.*.nupkg --api-key=${{ secrets.NUGET_TOKEN }} --source https://api.nuget.org/v3/index.json
+        dotnet nuget push FsiX.*.nupkg --api-key ${{steps.login.outputs.NUGET_API_KEY}} --source https://api.nuget.org/v3/index.json
         cd ../../FsiX.Cli.Web/nupkg
-        dotnet nuget push FsiX.Cli.Web.*.nupkg --api-key=${{ secrets.NUGET_TOKEN }} --source https://api.nuget.org/v3/index.json
+        dotnet nuget push FsiX.Cli.Web.*.nupkg --api-key ${{steps.login.outputs.NUGET_API_KEY}} --source https://api.nuget.org/v3/index.json
       shell: bash

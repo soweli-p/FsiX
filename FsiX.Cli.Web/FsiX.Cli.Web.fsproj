@@ -10,7 +10,7 @@
         <Version>0.1.0</Version>
 
         <!-- NuGet config -->
-        <PackageId>FsiX.Web</PackageId>
+        <PackageId>FsiX.Cli.Web</PackageId>
         <PackageTags>fsharp;functional;repl;interactive;shell;asp.net core;asp.net;.net core;fsix;fsix-web</PackageTags>
         <PackageProjectUrl>https://github.com/soweli-p/FsiX</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
