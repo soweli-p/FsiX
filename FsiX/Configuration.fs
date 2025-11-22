@@ -25,7 +25,7 @@ let getDefaultConfig () =
     }
 
 let patchDllIfNeeded configCode =
-    let lines = String.split [ "\n" ] configCode
+    let lines = String.split [ Environment.NewLine ] configCode
 
     match lines |> Seq.tryFind (_.Contains("PrettyPrompt.dll")) with
     | None -> Some <| loadDllString + configCode

@@ -1,5 +1,6 @@
 module FsiX.Tests.CompExprSimplifierTests
 
+open System
 open Expecto
 
 open FsiX.Middleware.ComputationExpression
@@ -19,7 +20,9 @@ type MockLogger() =
         member this.LogWarning _ = ()
 let mockLogger = MockLogger()
 
-let rewriteExpr = rewriteCompExpr mockLogger >> Async.RunSynchronously >> _.Replace("\r\n", "\n")
+let rewriteExpr = rewriteCompExpr mockLogger >> Async.RunSynchronously
+
+let ofLines (lines: string seq) = String.Join(Environment.NewLine, Seq.toArray lines)
 
 
 [<Tests>]
@@ -33,7 +36,10 @@ let tests =
           testCase "test let bang tab"
           <| fun _ -> Expect.isTrue (isCompExpr "   let! a = 10") "let! a = 10 - comp expr"
           testCase "test let bang multiline"
-          <| fun _ -> Expect.isTrue (isCompExpr "let a = 10\nlet! b = 20") "let a =10\nlet! b = 20 - comp expr"
+          <| fun _ ->
+              let expr = ofLines ["let a = 10"
+                                  "let! b = 20"]
+              Expect.isTrue (isCompExpr expr) $"{expr} - comp expr"
           testCase "test if bang"
           <| fun _ ->
               let code =
@@ -62,15 +68,18 @@ let tests =
           testCase "test bang rewrite"
           <| fun _ ->
               let code = "let! a = 10"
-              Expect.equal (rewriteExpr code) "let a = (10).Run()\n" "let bang rewrite"
+              let expected = ofLines ["let a = (10).Run()"; ""]
+              Expect.equal (rewriteExpr code) expected "let bang rewrite"
           testCase "test bang rewrite tab"
           <| fun _ ->
               let code = "    let! a = 10"
-              Expect.equal (rewriteExpr code) "let a = (10).Run()\n" "let bang rewrite"
+              let expected = ofLines ["let a = (10).Run()"; ""]
+              Expect.equal (rewriteExpr code) expected "let bang rewrite"
           testCase "test bang rewrite multiline"
           <| fun _ ->
-              let code = "let a = 10\nlet! b = 20"
-              Expect.equal (rewriteExpr code) "let a = 10\n\nlet b = (20).Run()\n" "let bang rewrite"
+              let code = ofLines ["let a = 10"; "" ; ""; "let! b = 20"]
+              let expected = ofLines ["let a = 10"; ""; "let b = (20).Run()"; ""]
+              Expect.equal (rewriteExpr code) expected "let bang rewrite"
 
           testCase "test bang rewrite multiline expr"
           <| fun _ ->
@@ -83,7 +92,7 @@ let tests =
               
         """
 
-              let exp = "let a = (someComplex |>> someMap |> multiline).Run()\n\n\n"
+              let exp = ofLines ["let a = (someComplex |>> someMap |> multiline).Run()"; ""; ""; ""]
               Expect.equal (rewriteExpr code) exp "let bang rewrite"
           testCase "test non let rewrite "
           <| fun _ ->

@@ -1,5 +1,6 @@
 module FsiX.Middleware.ComputationExpression
 
+open System
 open Fantomas.Core.SyntaxOak
 open Fantomas.Core
 
@@ -20,7 +21,7 @@ let parse code =
             try
                 let! res =
                     String.trim [ ' ' ] code
-                    |> fun code -> code + "\n()"
+                    |> fun code -> code + Environment.NewLine + "()"
                     |> fun code -> CodeFormatter.ParseOakAsync(false, code)
 
                 return
@@ -180,7 +181,7 @@ let rewriteCompExpr (logger: ILogger) code =
                 return code
             else
                 let rewrittenAst = rewriteParsedExpr parsed.tree
-                let! code = CodeFormatter.FormatOakAsync rewrittenAst |>> String.trimEnd " \n"
+                let! code = CodeFormatter.FormatOakAsync rewrittenAst |>> String.trimEnd (" " + Environment.NewLine)
 
                 let logCode code = 
                   logger.LogDebug $"Rewriting user computation expression input to: \n {code}"
