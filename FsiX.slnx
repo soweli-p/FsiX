@@ -1,0 +1,11 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="FsiX.Cli.Web/FsiX.Cli.Web.fsproj" />
+  <Project Path="FsiX.Cli/FsiX.Cli.fsproj" />
+  <Project Path="FsiX.Tests/FsiX.Tests.fsproj" />
+  <Project Path="FsiX/FsiX.fsproj" />
+</Solution>

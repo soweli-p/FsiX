@@ -2,12 +2,12 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+        <TargetFramework>net10.0</TargetFramework>
         <PackAsTool>true</PackAsTool>
         <IsPackable>true</IsPackable>
         <ToolCommandName>fsix</ToolCommandName>
         <PackageOutputPath>./nupkg</PackageOutputPath>
-        <Version>0.0.5</Version>
+        <Version>0.1.0</Version>
 
         <!-- NuGet config -->
         <PackageId>FsiX.Cli</PackageId>

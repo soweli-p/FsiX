@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFrameworks>net9.0</TargetFrameworks>
+        <TargetFramework>net10.0</TargetFramework>
         <GenerateProgramFile>false</GenerateProgramFile>
         <LangVersion>preview</LangVersion>
     </PropertyGroup>
@@ -20,7 +20,8 @@
         <PackageReference Include="FsCheck" Version="2.16.6"/>
         <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.15.*"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*"/>
-        <PackageReference Include="Lib.Harmony" Version="2.3.6" />
+        <PackageReference Include="Lib.Harmony" Version="2.4.2" />
+        <PackageReference Include="Fantomas.Core" Version="7.0.3"/>
     </ItemGroup>
 
     <ItemGroup>

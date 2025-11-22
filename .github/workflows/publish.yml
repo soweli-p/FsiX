@@ -1,4 +1,4 @@
-name: release
+name: Publish
 
 on:
   push:
@@ -17,8 +17,7 @@ jobs:
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: |
-          8.0.x
-          9.0.x
+          10.0.x
       
     - name: Dotnet Installation Info
       run: dotnet --info
@@ -29,8 +28,8 @@ jobs:
     # publish to nuget
     - name: Publish
       run: |
-        cd FsiX/nupkg
+        cd FsiX.Cli/nupkg
         dotnet nuget push FsiX.*.nupkg --api-key=${{ secrets.NUGET_TOKEN }} --source https://api.nuget.org/v3/index.json
-        cd ../../FsiX.Web/nupkg
-        dotnet nuget push FsiX.Web.*.nupkg --api-key=${{ secrets.NUGET_TOKEN }} --source https://api.nuget.org/v3/index.json
+        cd ../../FsiX.Cli.Web/nupkg
+        dotnet nuget push FsiX.Cli.Web.*.nupkg --api-key=${{ secrets.NUGET_TOKEN }} --source https://api.nuget.org/v3/index.json
       shell: bash
