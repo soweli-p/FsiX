@@ -1,4 +1,4 @@
-module FsiX.SyntaxHighlighting
+module FsiX.Features.SyntaxHighlighting
 
 open System
 
