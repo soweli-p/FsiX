@@ -8,56 +8,12 @@ open Fantomas.Core
 open Fantomas.FCS.Syntax
 open FsiX.AppState
 open FsiX.Utils
-open FParsec
-
-module Parsers =
-  let quotedString =
-    let unescapedChar = noneOf "\\\""
-
-    let escapedChar =
-        [ "\\\"", '"'
-          "\\\\", '\\'
-          "\\/", '/'
-          "\\b", '\b'
-          "\\f", '\f'
-          "\\n", '\n'
-          "\\r", '\r'
-          "\\t", '\t' ]
-        |> List.map (fun (toMatch, result) -> stringReturn toMatch result)
-        |> choice
-
-    let unicodeChar =
-        let convertToChar (s: string) =
-            System.Int32.Parse(s.Substring(2), System.Globalization.NumberStyles.HexNumber) |> char
-
-        regex @"\\u\d{4}" |>> convertToChar
-
-    let ochar = choice [ unescapedChar; escapedChar; unicodeChar ]
-
-    manyChars ochar |> between (pchar '"') (pchar '"')
-
-  let ident = identifier (IdentifierOptions())
-
-  let dotIdent =
-    sepBy1 ident (pchar '.') |>> String.concat "."
-
-  let runParser parser  source  =
-    match run parser source with
-    | Success(result, _, _) -> Some result
-    | Failure _ -> None
+open FsiX.Parsers
 
 module OpenDirective =
   let openedFileKey = "openedFiles"
   let openDirectiveMetadata = "openDirectiveMetadata"
   type OpenedFiles = string Set
-
-  open Parsers
-
-  let parseOpenDirective =
-      spaces >>. pchar '#' >>. (pstring "open" <|> pstring "o") >>. notFollowedBy ident
-      >>. many (spaces >>. (dotIdent <|> quotedString))
-      .>> spaces .>> eof
-      |> runParser
 
   let openDirectiveMiddleware next (request, st) =
     let moduleNameOfPath (path: string) =
@@ -141,7 +97,7 @@ module HelpDirective =
 
     let tryMkHelpMethod = parserModule.GetMethod("tryMkHelp", staticNonPublic)
     let tryGetXmlDocumentMethod = parserModule.GetMethod("tryGetXmlDocument", staticNonPublic)
-    let raiseMethod = operatorModule.GetMethod("Raise").MakeGenericMethod([|typeof<obj>|])
+    let raiseMethod = operatorModule.GetMethod("Raise")
 
   open Microsoft.FSharp.Quotations.Patterns
   // Adapted from Compiler/Interactive/fsihelp.fs
@@ -210,17 +166,7 @@ module HelpDirective =
             getInfos ty (Some ty.Name) ty.Name |> Some
         | _ -> None
 
-  open Parsers
   open FSharp.Compiler.Interactive
-
-  let mkParse names =
-      spaces >>. pchar '#' >>. (names |> Seq.map pstring |> choice) >>. notFollowedBy ident
-      >>. spaces >>. (dotIdent <|> quotedString)
-      .>> spaces .>> eof
-      |> runParser
-
-  let parseHelpDirective = mkParse ["help"; "h"]
-  let parseHtypeDirective = mkParse ["htype"]
 
   let failMsg = "unable to get documentation"
   
@@ -230,7 +176,7 @@ module HelpDirective =
       match st.Session.EvalExpressionDirectly($"<@@ {code} @@>") with
       // Evaluates to a Call(None, Raise, Value 1) when compilation fails
       | Some(:? FSharp.Quotations.Expr as Call(None, m, [Value(:? int as 1, _)]))
-        when m = raiseMethod ->
+        when m.GetGenericMethodDefinition() = raiseMethod ->
         failMsg
       | Some(:? FSharp.Quotations.Expr as e) ->
         match Expr.exprNames e with

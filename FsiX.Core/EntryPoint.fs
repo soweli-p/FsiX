@@ -65,7 +65,7 @@ let main useAsp args () =
                   | Error (:? FSharp.Compiler.Interactive.Shell.FsiCompilationException, _) -> ()
                   | Error (e, s) -> printfn "%A\n%s" e s
                   | Ok _ -> ()
-            with ex -> printfn "%s" ex.Message
+            with ex -> printfn "%A" ex
 
     }
 

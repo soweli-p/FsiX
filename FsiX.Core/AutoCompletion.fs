@@ -1,12 +1,14 @@
 module FsiX.Features.AutoCompletion
 
 open System.Threading.Tasks
+open System.Text.RegularExpressions
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Interactive
 open FSharp.Compiler.Text
 open FuzzySharp
 open PrettyPrompt.Completion
 open PrettyPrompt.Highlighting
+open FsiX.Parsers
 
 
 open FSharpPlus
@@ -69,7 +71,9 @@ module Directives =
               "include"
               "load"
               "time"
+              "h"
               "help"
+              "htype"
               "clear"
               "quit"
               "open" ]
@@ -85,7 +89,17 @@ module Directives =
 
         String.drop i entry
 
-    let commandCompletions (text: string) carret (wordToReplace: string) = 
+    open FParsec
+    let mkParseHelpOpen names =
+        let withpos =
+            ((getPosition |>> (_.Index >> int) .>>. dotIdent))
+            <|> ((getPosition |>> (_.Index >> int >> (+) 1)) .>>. quotedStringOpen .>> optional (pchar '"'))
+        spaces >>. anyOf "#:" >>. (names |> Seq.map pstring |> choice) >>. notFollowedBy ident
+        >>. spaces >>. withpos
+        .>> spaces .>> eof
+        |> runParser
+
+    let commandCompletions session (text: string) carret (wordToReplace: string) = 
         if not <| String.contains ' ' text then
             directives
             |> Seq.sortByDescending (fun keyword -> scoreCandidate wordToReplace keyword)
@@ -105,13 +119,13 @@ module Directives =
                 let lastPart = textList |> Seq.skip carret |> Seq.takeWhile (fun c -> c <> ' ')
                 Seq.append (Seq.rev firstPart) lastPart |> String.ofSeq
 
-            let trimmed = text.TrimStart()
+            match mkParseHelpOpen ["help"; "htype"; "h"] text with
+            | Some(startpos, code) when code <> "" ->
+                getFsCompletions session code (carret - startpos) wordToReplace
+            | _ ->
             let isDirectory =
-               trimmed |> String.contains Path.DirectorySeparatorChar
-               || trimmed.StartsWith "#open"
-               || trimmed.StartsWith ":open"
-               || trimmed.StartsWith "#load"
-               || trimmed.StartsWith ":load"
+               text |> String.contains Path.DirectorySeparatorChar
+               || Regex.Match(text, @"^\s*[#:](open|load)").Success
             if isDirectory then
                 let currentDir = [|Directory.GetCurrentDirectory(); Path.GetDirectoryName currentWord |] |> Path.Combine
                 if Directory.Exists currentDir then
@@ -128,9 +142,9 @@ module Directives =
                 []
 
 
-let getCompletions session text carret word =
-    match String.tryHead text with
+let getCompletions session (text: string) carret word =
+    match String.tryHead (text.TrimStart()) with
     | Some ':'
-    | Some '#' -> Directives.commandCompletions text carret word
+    | Some '#' -> Directives.commandCompletions session text carret word
     | Some _ -> getFsCompletions session text carret word
     | None -> []
