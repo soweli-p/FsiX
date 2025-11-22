@@ -60,7 +60,7 @@ jobs:
       with:
         tag_name: ${{ github.ref_name }}
         files: release/*.nupkg
-        body: release_notes.md
+        body: ${{ steps.changelog_reader.outputs.changes }}
 
 
     - name: Publish to GitHub Packages
