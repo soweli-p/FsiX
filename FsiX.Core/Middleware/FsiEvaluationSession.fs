@@ -47,8 +47,8 @@ let private parseExpr (checker: FSharpChecker) code fileName =
         let parsingOptions, _ = checker.GetParsingOptionsFromProjectOptions(projectOptions)
         let! results = checker.ParseFile(fileName, source, parsingOptions)
         return
-            match results.ParseTree with
-            | ParsedInput.ImplFile(
+            match results.ParseHadErrors, results.ParseTree with
+            | false, ParsedInput.ImplFile(
                 ParsedImplFileInput(
                     contents = [SynModuleOrNamespace(decls = [SynModuleDecl.Expr(expr = e)])]
                 )) -> Some e
