@@ -72,7 +72,7 @@ dotnet tool install --global fsix.web
 Then, just run
 
 ```
-dotnet fsix #or fsix-web
+fsix #or fsix-web
 ```
 in the root dir of your project
 
