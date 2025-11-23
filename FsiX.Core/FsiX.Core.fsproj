@@ -15,6 +15,7 @@
         <Compile Include="AutoCompletion.fs" />
         <Compile Include="SyntaxHighlighting.fs" />
         <Compile Include="AppState.fs" />
+        <Compile Include="Middleware\FsiHelp.fs" />
         <Compile Include="Middleware\FsiEvaluationSession.fs" />
         <Compile Include="Middleware\ComputationExpression.fs" />
         <Compile Include="Middleware\Directives.fs" />
