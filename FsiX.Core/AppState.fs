@@ -2,6 +2,7 @@ module FsiX.AppState
 
 open System
 open System.IO
+open System.Text
 open System.Collections.Generic
 
 open System.Threading
@@ -10,16 +11,10 @@ open FSharp.Compiler.Interactive.Shell
 open FSharpPlus
 open FsiX.Features
 open FsiX.ProjectLoading
-open FsiX.Utils
 
 open PrettyPrompt
 open PrettyPrompt.Highlighting
 
-
-type FilePath = string
-
-
-open System.Text
 type BufferedStdoutWriter() =
   inherit TextWriter()
 

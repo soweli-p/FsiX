@@ -10,7 +10,6 @@ open PrettyPrompt.Completion
 open PrettyPrompt.Highlighting
 open FsiX.Parsers
 
-
 open FSharpPlus
 
 let scoreCandidate (enteredWord: string) (candidate: string) =

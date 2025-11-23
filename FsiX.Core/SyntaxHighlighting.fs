@@ -10,7 +10,6 @@ open PrettyPrompt.Highlighting
 
 #nowarn "0057"
 
-
 type private FSharpToken with
     member this.IsControlKeyword =
         match this.Kind with

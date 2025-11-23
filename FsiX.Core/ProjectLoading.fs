@@ -10,9 +10,6 @@ open Ionide.ProjInfo.Types
 open FsiX.Utils
 open FsiX.Args
 
-
-
-type FileName = string
 type DllName = string
 type DirName = string
 

@@ -16,7 +16,6 @@ open FSharp.Compiler.Interactive.Shell
 [<AutoOpen>]
 module private Reflection =
     let fcs = sprintf "FSharp.Compiler.Interactive.Shell+%s, FSharp.Compiler.Service"
-    let staticNonPublic = BindingFlags.Static ||| BindingFlags.NonPublic
     let instanceNonPublic = BindingFlags.Instance ||| BindingFlags.NonPublic
 
     let fsiInteractionProcessorType = Type.GetType(fcs "FsiInteractionProcessor")

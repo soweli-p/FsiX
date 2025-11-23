@@ -3,16 +3,15 @@ module FsiX.Middleware.Directives
 #nowarn "57"
 
 open System.IO
-open FSharpPlus
 open Fantomas.Core
 open Fantomas.FCS.Syntax
 open FsiX.AppState
-open FsiX.Utils
 open FsiX.Parsers
 
 module OpenDirective =
   let openedFileKey = "openedFiles"
   let openDirectiveMetadata = "openDirectiveMetadata"
+
   type OpenedFiles = string Set
 
   let openDirectiveMiddleware next (request, st) =

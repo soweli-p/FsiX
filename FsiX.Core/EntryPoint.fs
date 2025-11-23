@@ -1,18 +1,11 @@
 ﻿module FsiX.EntryPoint
 
 open System.Collections.Generic
-open System.IO
 
-open FSharp.Compiler.Text
-open FSharp.Compiler.Tokenization
-
-open FsiX.Features
 open FsiX.Middleware
 open FsiX.ProjectLoading
 open FsiX.AppState
 open PrettyPrompt.Completion
-open PrettyPrompt.Highlighting
-open PrettyPrompt.Documents
 
 type FsiCallBacks(app: MailboxProcessor<AppState.Command>) =
     inherit PrettyPrompt.PromptCallbacks()

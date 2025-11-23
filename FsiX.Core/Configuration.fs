@@ -10,9 +10,6 @@ let prettyPromptDll =
 
 let loadDllString = $"#r \"{prettyPromptDll}\"\n" |> _.Replace(@"\", @"\\")
 
-
-
-open PrettyPrompt.Consoles
 let getDefaultConfig () =
     task {
         let! defaultConfig =
