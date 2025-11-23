@@ -15,7 +15,9 @@ type Arguments =
   | [<Sep(":")>] Load of fileName: string
   | [<Sep(":")>] Use of fileName: string
   | [<Alt("-l")>] Lib of folderList: string list
+  | [<Unique>] Restore of string
   | [<Last>] Other of args: string list
+
   interface IArgParserTemplate with
       member s.Usage =
           match s with
@@ -26,6 +28,7 @@ type Arguments =
           | Load _ -> "compiles the given source code at startup and loads the compiled F# constructs into the session."
           | Use _ -> "tells the interpreter to use the given file on startup as initial input. If it contains prompt configuration, it'd be used for this REPL."
           | Lib _ -> "specifies a directory to be searched for assemblies that are referenced."
+          | Restore _ -> "specifies a file from which the evaluation history is restored"
           | Other _ -> "Any other arguments which will be passed to fsi.exe"
 
 let errorHandler = ProcessExiter(colorizer = function ErrorCode.HelpText -> None | _ -> Some ConsoleColor.Red)

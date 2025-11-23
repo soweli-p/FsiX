@@ -28,7 +28,11 @@ let main useAsp args () =
         let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
         let appActor =
             let sln = loadSolution parsedArgs
-            AppState.mkAppStateActor useAsp sln
+            AppStateActor.mkAppStateActor useAsp sln
+        parsedArgs
+        |> List.iter (function
+            | FsiX.Args.Restore path -> appActor.Post(Restore path)
+            | _ -> ())
         let middleware = [
           Directives.HelpDirective.helpDirectiveMiddleware
           Directives.OpenDirective.openDirectiveMiddleware
