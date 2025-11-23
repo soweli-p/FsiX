@@ -1,12 +1,9 @@
 module FsiX.Features.AutoCompletion
 
-open System.Threading.Tasks
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Interactive
 open FSharp.Compiler.Text
 open FuzzySharp
-open PrettyPrompt.Completion
-open PrettyPrompt.Highlighting
 
 
 open FSharpPlus
@@ -15,7 +12,7 @@ type CompletionItem = {
   DisplayText: string
   ReplacementText: string
   Kind: string
-  GetFormattedDescription: (unit -> FormattedString option)
+  GetDescription: (unit -> TaggedText array) option
 }
 
 let scoreCandidate (enteredWord: string) (candidate: string) =
@@ -40,15 +37,6 @@ module FsCompletions =
 
       let mkCompletionItem (declInfo: DeclarationListItem) =
           let getDocs () =
-              let tagToColor =
-                  function
-                  | TextTag.Keyword -> AnsiColor.Blue
-                  | TextTag.Function -> AnsiColor.Cyan
-                  | _ -> AnsiColor.White
-
-              let mkSpan (builder: FormattedStringBuilder) (tag: TaggedText) =
-                  builder.Append(tag.Text, FormatSpan(0, tag.Text.Length, tagToColor tag.Tag))
-
               declInfo.Description
               |> (fun (ToolTipText elems) -> elems)
               |> Seq.collect (function
@@ -56,15 +44,12 @@ module FsCompletions =
                   | _ -> [])
               |> Seq.tryHead
               |>> _.MainDescription
-              |>> Seq.fold mkSpan (FormattedStringBuilder())
-              |>> _.ToFormattedString()
-
-          
+              |> Option.defaultValue [||]
           {
             CompletionItem.DisplayText = declInfo.NameInList
             ReplacementText = declInfo.NameInCode
             Kind = declInfo.Kind.ToString()
-            GetFormattedDescription = getDocs
+            GetDescription = Some getDocs
           }
 
       declItems
@@ -101,7 +86,7 @@ module DirectiveCompletions =
                 CompletionItem.DisplayText = keyword
                 ReplacementText = mkReplacement wordToReplace keyword
                 Kind = "Keyword"
-                GetFormattedDescription = konst None
+                GetDescription = None
               })
         else
             let currentWord =
@@ -132,7 +117,7 @@ module DirectiveCompletions =
                         CompletionItem.DisplayText = fsEntry
                         ReplacementText = fsEntry
                         Kind = if fsEntry.EndsWith "/" then "Folder" else "File"
-                        GetFormattedDescription = konst None
+                        GetDescription = None
                       })
                 else
                     []

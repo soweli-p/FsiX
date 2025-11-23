@@ -4,16 +4,13 @@ open System
 open System.IO
 
 open System.Threading
-open System.Threading.Tasks
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.Interactive.Shell
 open FSharpPlus
-open Fantomas.FCS.Diagnostics
 open FsiX.Features
 open FsiX.ProjectLoading
 open FsiX.Utils
 
-open PrettyPrompt
 
 
 type FilePath = string

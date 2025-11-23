@@ -37,4 +37,9 @@
         <ProjectReference Include="..\FsiX\FsiX.fsproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <PackageReference Include="FSharpPlus" Version="1.8.0"/>
+        <PackageReference Include="PrettyPrompt" Version="4.1.1"/>
+    </ItemGroup>
+
 </Project>

@@ -3,10 +3,37 @@ module FsiX.Cli.PrettyPromptCallbacks
 open FSharpPlus
 open FsiX.AppState
 
+open FSharp.Compiler.Text
+
 open PrettyPrompt.Completion
+open PrettyPrompt.Highlighting
 open System.Threading.Tasks
 
 open System.Collections.Generic
+
+module AutoCompletionMapping =
+  let tagToColor =
+      function
+      | TextTag.Keyword -> AnsiColor.Blue
+      | TextTag.Function -> AnsiColor.Cyan
+      | _ -> AnsiColor.White
+
+  let mkSpan (builder: FormattedStringBuilder) (tag: TaggedText) =
+      builder.Append(tag.Text, FormatSpan(0, tag.Text.Length, tagToColor tag.Tag))
+  let mapCompletionItem (i: FsiX.Features.AutoCompletion.CompletionItem) = 
+    match i.GetDescription with 
+    | None -> CompletionItem(replacementText=i.ReplacementText, displayText=i.DisplayText)
+    | Some fn -> CompletionItem(replacementText=i.ReplacementText, displayText=i.DisplayText,
+        getExtendedDescription=(
+          konst () 
+          >> fn
+          >> Seq.fold mkSpan (FormattedStringBuilder())
+          >> _.ToFormattedString()
+          >> Task.FromResult
+        )
+      )
+
+
 
 type FsiCallBacks(app: AppActor) =
     inherit PrettyPrompt.PromptCallbacks()
@@ -18,14 +45,6 @@ type FsiCallBacks(app: AppActor) =
             let! items = app.PostAndAsyncReply(fun r -> Autocomplete(text, caret, typedWord, r)) |> Async.StartAsTask
             return
               items
-              |> List.map (fun i ->
-                CompletionItem(replacementText=i.ReplacementText, displayText=i.DisplayText, 
-                  getExtendedDescription=(
-                    konst () 
-                    >> i.GetFormattedDescription
-                    >> Option.defaultValue (new PrettyPrompt.Highlighting.FormattedString()) 
-                    >> Task.FromResult)
-                )
-              )
+              |> List.map AutoCompletionMapping.mapCompletionItem
               :> IReadOnlyList<CompletionItem>
         }
