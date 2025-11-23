@@ -13,13 +13,13 @@ module Configuration =
   open System.IO
   open System.Reflection
 
-  let getEmbeddedFileAsString fileName = task {
-    let asm = Assembly.GetExecutingAssembly()
+  let getEmbeddedFileAsString fileName (asm: Assembly) = task {
     use stream = asm.GetManifestResourceStream fileName
     use reader = new StreamReader(stream)
     return! reader.ReadToEndAsync()
   }
-  let getBaseConfigString () = getEmbeddedFileAsString "FsiX.base.fsx"
+  let getBaseConfigString () = 
+    getEmbeddedFileAsString "FsiX.base.fsx" (Assembly.GetExecutingAssembly())
   let getConfigDir () = 
     let configDir =
         Environment.GetFolderPath Environment.SpecialFolder.ApplicationData

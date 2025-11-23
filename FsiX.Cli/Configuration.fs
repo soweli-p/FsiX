@@ -11,10 +11,11 @@ let prettyPromptDll =
 let loadDllString = $"#r \"{prettyPromptDll}\"" |> _.Replace(@"\", @"\\")
 
 
+open System.Reflection
 let getDefaultConfig () =
     task {
-        let! baseCfg = getEmbeddedFileAsString "FsiX.base.fsx"
-        and! promptCfg = getEmbeddedFileAsString "FsiX.Cli.prompt.fsx" 
+        let! baseCfg = getBaseConfigString ()
+        and! promptCfg = getEmbeddedFileAsString "FsiX.Cli.prompt.fsx" (Assembly.GetExecutingAssembly())
 
         return String.concat Environment.NewLine [
           loadDllString
