@@ -9,7 +9,6 @@
         <Compile Include="Args.fs"/>
         <Compile Include="Utils.fs"/>
         <Compile Include="ProjectLoading.fs"/>
-        <Compile Include="Configuration.fs"/>
         <Compile Include="AutoCompletion.fs" />
         <Compile Include="AppState.fs"/>
         <Compile Include="Middleware\ComputationExpression.fs" />
@@ -18,7 +17,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="repl.fsx"/>
+        <EmbeddedResource Include="base.fsx"/>
     </ItemGroup>
 
     <ItemGroup>

@@ -2,8 +2,8 @@ module FsiX.Configuration
 
 open System
 open System.IO
-open System.Reflection
 open FSharpPlus
+open FsiX.Utils.Configuration
 
 let prettyPromptDll =
     typeof<PrettyPrompt.PromptConfiguration> |> _.Assembly |> _.Location
@@ -11,17 +11,16 @@ let prettyPromptDll =
 let loadDllString = $"#r \"{prettyPromptDll}\"" |> _.Replace(@"\", @"\\")
 
 
-
-open PrettyPrompt.Consoles
 let getDefaultConfig () =
     task {
-        let! defaultConfig =
-            let asm = Assembly.GetExecutingAssembly()
-            use stream = asm.GetManifestResourceStream $"FsiX.repl.fsx"
-            use reader = new StreamReader(stream)
-            reader.ReadToEndAsync()
+        let! baseCfg = getEmbeddedFileAsString "FsiX.base.fsx"
+        and! promptCfg = getEmbeddedFileAsString "FsiX.Cli.prompt.fsx" 
 
-        return loadDllString + defaultConfig
+        return String.concat Environment.NewLine [
+          loadDllString
+          baseCfg
+          promptCfg
+        ]
     }
 
 let patchDllIfNeeded configCode =
@@ -34,9 +33,8 @@ let patchDllIfNeeded configCode =
 
 let loadGlobalConfig () =
     task {
-        let configPath =
-            Environment.GetFolderPath Environment.SpecialFolder.ApplicationData
-            |> fun s -> Path.Combine [| s; "fsix"; "repl.fsx" |]
+        let dirPath = getConfigDir ()
+        let configPath = Path.Combine(dirPath, "repl.fsx")
 
         let patchDllIfNeeded configCode =
             match patchDllIfNeeded configCode with
@@ -48,10 +46,6 @@ let loadGlobalConfig () =
         if File.Exists configPath then
             return! File.ReadAllTextAsync configPath >>= patchDllIfNeeded
         else
-            configPath 
-              |> Path.GetDirectoryName
-              |> Directory.CreateDirectory
-              |> ignore
             let! defaultConfig = getDefaultConfig ()
             do! File.WriteAllTextAsync(configPath, defaultConfig)
             return defaultConfig

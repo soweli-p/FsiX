@@ -25,7 +25,7 @@ type Solution =
       OtherArgs: string list
     }
 
-let loadSolution (args: Arguments list) =
+let loadSolution (logger: ILogger) (args: Arguments list) =
     let directory =
           args
           |> List.tryPick (function | Dir d -> Some d | _ -> None) 
@@ -40,7 +40,7 @@ let loadSolution (args: Arguments list) =
       | s -> s |> List.map Path.GetFullPath
     match solutions, projects with
     | [], [] ->
-      Logging.logWarning "Couldnt find any solution or project"
+      logger.LogWarning "Couldnt find any solution or project"
       { FsProjects = []; Projects = []; StartupFiles = [];
         References = []; LibPaths = []; OtherArgs = []
       }
@@ -73,7 +73,7 @@ let loadSolution (args: Arguments list) =
     }
 
 
-let solutionToFsiArgs useAsp sln =
+let solutionToFsiArgs (logger: ILogger) useAsp sln =
   let projectDlls = sln.Projects |> Seq.map _.TargetPath 
   let nugetDlls = 
     sln.Projects
@@ -87,7 +87,7 @@ let solutionToFsiArgs useAsp sln =
     |> Seq.distinct
     |> List.ofSeq
   if List.exists (File.Exists >> not) allDlls then
-    Logging.logError "Not all dlls are found! Pleaase build your project before running REPL"
+    logger.LogError "Not all dlls are found! Pleaase build your project before running REPL"
     Environment.Exit 1
   [|
     "fsi"

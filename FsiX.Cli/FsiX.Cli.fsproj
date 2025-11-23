@@ -21,6 +21,9 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Logging.fs" />
+        <Compile Include="PrettyPromptCallbacks.fs" />
+        <Compile Include="Configuration.fs" />
         <Compile Include="CliEventLoop.fs" />
         <Compile Include="Program.fs"/>
         <None Include="..\Readme.md">

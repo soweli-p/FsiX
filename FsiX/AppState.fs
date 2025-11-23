@@ -68,8 +68,6 @@ type TextWriterRecorder(writerToRecord: TextWriter) =
 type AppState = {
   Solution: Solution
   Logger: ILogger
-  GlobalConfig: string
-  LocalConfigs: string array
   Session: FsiEvaluationSession
   OutStream: TextWriterRecorder
   Custom: Map<string, obj>
@@ -93,7 +91,7 @@ type EvalResponse = {
   EvaluationResult: Result<string, Exception>
   Diagnostics: Diagnostic array
   EvaluatedCode: string
-  Metadata: Map<string, obj>
+  Metadata: Map<string, objnull>
   }
 type EvalRequest = {Code: string; Args: Map<string, obj>; }
 
@@ -103,9 +101,10 @@ type Middleware = MiddlewareNext -> EvalRequest * AppState -> EvalResponse * App
 type Command = 
   | Eval of EvalRequest * CancellationToken * AsyncReplyChannel<EvalResponse>
   | Autocomplete of text: string * caret: int * word: string * AsyncReplyChannel<list<AutoCompletion.CompletionItem>>
-  | GetConfiguration of AsyncReplyChannel<PromptConfiguration>
+  | GetBoundValue of name: string * AsyncReplyChannel<obj Option>
   | AddMiddleware of Middleware list
 
+type AppActor = MailboxProcessor<Command>
 
 let wrapErrorMiddleware next (request, st) =
   try 
@@ -138,7 +137,9 @@ let evalFn token =
 
     st.OutStream.StopRecording() |> ignore
     {EvaluationResult = evalRes; Diagnostics = diagnostics; Metadata = Map.empty; EvaluatedCode = code}, st
-let mkAppStateActor (logger: ILogger) outStream useAsp sln = MailboxProcessor.Start(fun mailbox ->
+
+let mkAppStateActor (logger: ILogger) outStream useAsp sln = 
+  MailboxProcessor.Start(fun mailbox ->
   let rec loop st middleware = async {
     let! cmd = mailbox.Receive()
     match cmd with 
@@ -146,12 +147,12 @@ let mkAppStateActor (logger: ILogger) outStream useAsp sln = MailboxProcessor.St
       let res = AutoCompletion.getCompletions st.Session text caret word
       reply.Reply res
       return! loop st middleware
-    | GetConfiguration reply -> 
-      let promptConfigurationValue =
-          st.Session.GetBoundValues()
-          |> List.find (fun x -> x.Value.ReflectionType.Name = nameof PromptConfiguration)
-          |> (fun v -> v.Value.ReflectionValue :?> PromptConfiguration)
-      reply.Reply promptConfigurationValue
+    | GetBoundValue (name, reply) -> 
+      st.Session.GetBoundValues() 
+      |> List.tryFind (fun x -> x.Name = name)
+      |>> (fun v -> v.Value.ReflectionValue)
+      >>= Option.ofObj
+      |> reply.Reply
 
       return! loop st middleware
     | Eval (request, token, reply) -> 
@@ -167,10 +168,8 @@ let mkAppStateActor (logger: ILogger) outStream useAsp sln = MailboxProcessor.St
     logger.LogInfo "Loading these projects: "
     for project in sln.Projects do
       logger.LogInfo project.ProjectFileName
-    let globalConfigTask = Configuration.loadGlobalConfig ()
-    let localConfigTasks = sln.StartupFiles |> Seq.map File.ReadAllTextAsync |> Task.WhenAll
     let fsiConfig = FsiEvaluationSession.GetDefaultConfiguration()
-    let args = solutionToFsiArgs useAsp sln
+    let args = solutionToFsiArgs logger useAsp sln
 
 
     let recorder = new TextWriterRecorder(outStream)
@@ -183,25 +182,19 @@ let mkAppStateActor (logger: ILogger) outStream useAsp sln = MailboxProcessor.St
             outStream,
             collectible = true
         )
-    let! globalConfig, localConfigs = 
-      Task.map2 tuple2 globalConfigTask localConfigTasks |> Async.AwaitTask
+    for fileName in sln.StartupFiles do
+      logger.LogInfo $"Loading {fileName}"
+      let! fileContents = File.ReadAllTextAsync fileName |> Async.AwaitTask
+      fsiSession.EvalInteraction(fileContents, CancellationToken.None)
 
-    logger.LogInfo "Loading configuration..."
-    fsiSession.EvalInteraction(globalConfig, CancellationToken.None)
-
-    for cfg in localConfigs do
-      fsiSession.EvalInteraction(cfg, CancellationToken.None)
     recorder.Enable()
 
     let st = {Solution = sln;
               Session = fsiSession; 
-              GlobalConfig = globalConfig;
-              LocalConfigs = localConfigs
               Logger = logger
               OutStream = recorder
               Custom = Map.empty}
 
-    logger.LogDebug("Done!")
     return! loop st []
   }
   init ()

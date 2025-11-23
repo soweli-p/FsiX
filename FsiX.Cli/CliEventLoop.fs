@@ -1,54 +1,20 @@
 module FsiX.Cli.CliEventLoop
 
-open System.Collections.Generic
-open System.IO
-
-open Fantomas.FCS.Diagnostics
-open FsiX.Features
 open FsiX.Middleware
 open FsiX.ProjectLoading
 open FsiX.AppState
-open FsiX.Utils
-open PrettyPrompt.Completion
 open FsiX
-open System.Threading.Tasks
+open System.Threading
 
-type CliLogger() =
-    interface ILogger with
-        member this.LogDebug s = Logging.logDebug s
-        member this.LogInfo s = Logging.logInfo s
-        member this.LogError s = Logging.logError s
-        member this.LogWarning s = Logging.logWarning s
+open FsiX.Cli.Logging
+open FsiX.Cli.PrettyPromptCallbacks
 
-open FSharpPlus
-type FsiCallBacks(app: MailboxProcessor<AppState.Command>) =
-    inherit PrettyPrompt.PromptCallbacks()
 
-    override _.ShouldOpenCompletionWindowAsync (text: string, caret: int, keyPress: PrettyPrompt.Consoles.KeyPress, cancellationToken: System.Threading.CancellationToken): System.Threading.Tasks.Task<bool> = task { return true }
-    override _.GetCompletionItemsAsync(text, caret, spanToBeReplaced, _) =
-        task {
-            let typedWord = text.Substring(spanToBeReplaced.Start, spanToBeReplaced.Length)
-            let! items = app.PostAndAsyncReply(fun r -> Autocomplete(text, caret, typedWord, r)) |> Async.StartAsTask
-            return
-              items
-              |> List.map (fun i ->
-                CompletionItem(replacementText=i.ReplacementText, displayText=i.DisplayText, 
-                  getExtendedDescription=(
-                    konst () 
-                    >> i.GetFormattedDescription
-                    >> Option.defaultValue (new PrettyPrompt.Highlighting.FormattedString()) 
-                    >> Task.FromResult)
-                )
-              )
-              :> IReadOnlyList<CompletionItem>
-        }
-
-let runCliEventLoop useAsp args () = task {
+let startActor useAsp args = 
   let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
-  let logger: ILogger = CliLogger()
   let appActor =
-    let sln = loadSolution parsedArgs
-    AppState.mkAppStateActor logger stdout useAsp sln
+    let sln = loadSolution cliLogger parsedArgs
+    AppState.mkAppStateActor cliLogger stdout useAsp sln
   let middleware = [
     Directives.viBindMiddleware
     Directives.OpenDirective.openDirectiveMiddleware
@@ -56,8 +22,33 @@ let runCliEventLoop useAsp args () = task {
     HotReloading.hotReloadingMiddleware
   ]
   appActor.Post(AddMiddleware middleware)
+  appActor
+let runSimpleEval (actor: AppActor) code ct = task {
+  let request = {EvalRequest.Code = code; Args = Map.empty}
+  let! response = actor.PostAndAsyncReply(fun r -> Command.Eval(request, ct, r))
+  return response
+}
+let loadConfiguration actor = task {
+  cliLogger.LogInfo "Loading configuration..."
+  let! config = Configuration.loadGlobalConfig ()
+  let! {EvaluationResult = r} = runSimpleEval actor config CancellationToken.None
+  match r with 
+  | Result.Error ex -> cliLogger.LogWarning <| ex.ToString()
+  | Ok _ -> ()
 
-  let config = appActor.PostAndReply GetConfiguration
+  let! promptConfig = actor.PostAndAsyncReply(fun r -> Command.GetBoundValue("promptConfig", r))
+  match promptConfig with 
+  | Some x when (x :? PrettyPrompt.PromptConfiguration) ->
+    cliLogger.LogInfo "Done!"
+    return x :?> PrettyPrompt.PromptConfiguration
+  | _ ->
+    cliLogger.LogError <| "Cannot find prompt configuration!"
+    System.Environment.Exit 1
+    return failwith "cannot happen"
+}
+let runCliEventLoop useAsp args () = task {
+  let appActor = startActor useAsp args
+  let! config = loadConfiguration appActor 
 
   let prompt =
       PrettyPrompt.Prompt(
@@ -69,17 +60,16 @@ let runCliEventLoop useAsp args () = task {
       try
           let! userLine = prompt.ReadLineAsync()
           if userLine.IsSuccess then
-            let request = {Code = userLine.Text; Args = Map.empty } 
-            let! response = appActor.PostAndAsyncReply(fun r -> Command.Eval(request, userLine.CancellationToken, r))
+            let! response = runSimpleEval appActor userLine.Text userLine.CancellationToken
             for d in response.Diagnostics do
                 match d.Severity with
-                | Info -> Logging.logInfo d.Message
-                | Hidden -> Logging.logDebug d.Message
-                | Warning -> Logging.logWarning d.Message
-                | Error -> Logging.logError d.Message
+                | Info -> cliLogger.LogInfo d.Message
+                | Hidden -> cliLogger.LogDebug d.Message
+                | Warning -> cliLogger.LogWarning d.Message
+                | Error -> cliLogger.LogError d.Message
             match response.EvaluationResult with 
             | Ok _ -> () //do nothing as TextWriterRecorder will print colored result
-            | Result.Error e -> logger.LogError <| e.ToString()
+            | Result.Error e -> cliLogger.LogError <| e.ToString()
 
       with _ -> ()
 
