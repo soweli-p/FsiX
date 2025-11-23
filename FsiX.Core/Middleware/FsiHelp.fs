@@ -239,10 +239,13 @@ let private getSourceName = function
     | Type ty -> ty.Name
     | UnionCase case -> case.Name
 
+let private getFullName = function
+    | Type ty -> getTypeName ty
+    | e -> $"{getTypeName (getDeclaringType e)}.{getSourceName e}"
+
 let tryMkHelp entry =
     let xmlDocId = getXmlDocId entry
     let declaringType = getDeclaringType entry
-    let sourceName = getSourceName entry
 
     declaringType.Assembly.Location
     |> getXmlPath
@@ -259,9 +262,9 @@ let tryMkHelp entry =
                 |> Option.ofObj
             | _ -> None))
     |> Option.flatten
-    |> Option.bind (fun node ->
-        let fullName = $"{getTypeName declaringType}.{sourceName}"
-        tryXmlNodeToHelp declaringType.Assembly.Location fullName node)
+    |> Option.bind (
+        tryXmlNodeToHelp declaringType.Assembly.Location (getFullName entry)
+    )
 
 let rec private exprNames expr =
     match expr with
