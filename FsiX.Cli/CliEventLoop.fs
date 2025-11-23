@@ -10,7 +10,7 @@ open FsiX.Cli.Logging
 open FsiX.Cli.PrettyPromptCallbacks
 
 
-let startActor useAsp args = 
+let startActor useAsp args = task {
   let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
   let appActor =
     let sln = loadSolution cliLogger parsedArgs
@@ -21,8 +21,9 @@ let startActor useAsp args =
     ComputationExpression.compExprMiddleware
     HotReloading.hotReloadingMiddleware
   ]
-  appActor.Post(AddMiddleware middleware)
-  appActor
+  do! appActor.PostAndAsyncReply(fun r -> AddMiddleware (middleware, r))
+  return appActor
+}
 let runSimpleEval (actor: AppActor) code ct = task {
   let request = {EvalRequest.Code = code; Args = Map.empty}
   let! response = actor.PostAndAsyncReply(fun r -> Command.Eval(request, ct, r))
@@ -39,7 +40,8 @@ let loadConfiguration actor = task {
   let! promptConfig = actor.PostAndAsyncReply(fun r -> Command.GetBoundValue("promptConfig", r))
   match promptConfig with 
   | Some x when (x :? PrettyPrompt.PromptConfiguration) ->
-    cliLogger.LogInfo "Done!"
+    cliLogger.LogDebug "Done!"
+    actor.Post Command.EnableStdout
     return x :?> PrettyPrompt.PromptConfiguration
   | _ ->
     cliLogger.LogError <| "Cannot find prompt configuration!"
@@ -47,7 +49,7 @@ let loadConfiguration actor = task {
     return failwith "cannot happen"
 }
 let runCliEventLoop useAsp args () = task {
-  let appActor = startActor useAsp args
+  let! appActor = startActor useAsp args
   let! config = loadConfiguration appActor 
 
   let prompt =

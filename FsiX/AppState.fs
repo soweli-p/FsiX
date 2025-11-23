@@ -99,7 +99,9 @@ type Command =
   | Eval of EvalRequest * CancellationToken * AsyncReplyChannel<EvalResponse>
   | Autocomplete of text: string * caret: int * word: string * AsyncReplyChannel<list<AutoCompletion.CompletionItem>>
   | GetBoundValue of name: string * AsyncReplyChannel<obj Option>
-  | AddMiddleware of Middleware list
+  | AddMiddleware of Middleware list * AsyncReplyChannel<unit>
+  | EnableStdout
+
 
 type AppActor = MailboxProcessor<Command>
 
@@ -144,6 +146,9 @@ let mkAppStateActor (logger: ILogger) outStream useAsp sln =
       let res = AutoCompletion.getCompletions st.Session text caret word
       reply.Reply res
       return! loop st middleware
+    | EnableStdout -> 
+      st.OutStream.Enable()
+      return! loop st middleware
     | GetBoundValue (name, reply) -> 
       st.Session.GetBoundValues() 
       |> List.tryFind (fun x -> x.Name = name)
@@ -157,7 +162,8 @@ let mkAppStateActor (logger: ILogger) outStream useAsp sln =
       let res, newSt = pipeline (request, st)
       reply.Reply res
       return! loop newSt middleware
-    | AddMiddleware additionalMiddleware -> 
+    | AddMiddleware (additionalMiddleware, r) -> 
+      r.Reply(()) // needed to know when middleware was added so actor is initialized
       return! loop st (additionalMiddleware @ middleware)
   }
   and init () = async {
@@ -183,8 +189,6 @@ let mkAppStateActor (logger: ILogger) outStream useAsp sln =
       logger.LogInfo $"Loading {fileName}"
       let! fileContents = File.ReadAllTextAsync fileName |> Async.AwaitTask
       fsiSession.EvalInteraction(fileContents, CancellationToken.None)
-
-    recorder.Enable()
 
     let st = {Solution = sln;
               Session = fsiSession; 
