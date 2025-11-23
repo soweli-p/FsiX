@@ -53,9 +53,15 @@ https://github.com/user-attachments/assets/fb14365c-758a-4603-b729-94e2eebe006d
 
         Use your vim muscle memory in F#!
 
+- **Smarter Interactive Help**
+
+    - `#help` now tries to accurately resolve the overload of the input expression.
+
+    - A new directive, `#htype`, provides the documentation of a type, instead of its constructor.
+
 - **Modern REPL Experience**
 
-    Autocompletion, history, and more niceties via [PrettyPrompt](https://github.com/waf/PrettyPrompt)
+    Autocompletion, history, syntax highlighting, and more niceties via [PrettyPrompt](https://github.com/waf/PrettyPrompt)
 
 
 ## 🚀 Installation
