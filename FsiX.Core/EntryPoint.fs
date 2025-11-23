@@ -33,6 +33,8 @@ let main useAsp args () =
           Directives.HelpDirective.helpDirectiveMiddleware
           Directives.OpenDirective.openDirectiveMiddleware
           Directives.HelpDirective.htypeDirectiveMiddleware
+          Directives.SaveRestoreDirectives.saveDirectiveMiddleware
+          Directives.SaveRestoreDirectives.restoreDirectiveMiddleware
           Directives.viBindMiddleware
           ComputationExpression.compExprMiddleware
         ]

@@ -120,6 +120,34 @@ module HelpDirective =
       next ({request with Code = ""}, st)
     | None -> next (request, st)
 
+module SaveRestoreDirectives =
+  let saveDirectiveMiddleware next (request, st) =
+    match parseSaveDirective request.Code with
+    | Some path ->
+      $"Stashing {List.length st.EvalHistory} in {path} ... "
+      |> st.OutStream.Write
+      
+      if FsiX.SaveRestore.save st path then st.OutStream.WriteLine("Done")
+      else st.OutStream.WriteLine("Failed")
+      
+      next ({request with Code = ""}, st)
+    | None -> next (request, st)
+
+  let restoreDirectiveMiddleware next (request, st) =
+    match parseRestoreDirective request.Code with
+    | Some path ->
+      $"Restoring application state from {path} ... "
+      |> st.OutStream.Write
+
+      match FsiX.SaveRestore.restore st path with
+      | Some newState ->
+        st.OutStream.WriteLine("Done")
+        next ({request with Code = ""}, newState)
+      | None ->
+        st.OutStream.WriteLine("Failed")
+        next ({request with Code = ""}, st)
+    | None -> next (request, st)
+
 let viBindMiddleware next (request, st) = 
   let trimmed = request.Code.TrimStart()
   if trimmed.StartsWith(':') then next ({request with Code = "#" + trimmed[1..]}, st)

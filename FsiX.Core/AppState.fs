@@ -67,6 +67,7 @@ type AppState = {
   LocalConfigs: string array
   Session: FsiEvaluationSession
   OutStream: BufferedStdoutWriter
+  EvalHistory: string list
   Custom: Map<string, obj>
   }
 
@@ -93,7 +94,7 @@ let evalFn token =
       st.OutStream.StartRecording()
       st.Session.EvalInteraction(code, token)
       let res = st.OutStream.StopRecording()
-      {Result = Ok res; Metadata = Map.empty}, st
+      {Result = Ok res; Metadata = Map.empty}, {st with EvalHistory = code :: st.EvalHistory}
     with e ->
       {Result = Error (e, st.OutStream.StopRecording()); Metadata = Map.empty}, st
 let mkAppStateActor useAsp sln = MailboxProcessor.Start(fun mailbox ->
@@ -162,6 +163,7 @@ let mkAppStateActor useAsp sln = MailboxProcessor.Start(fun mailbox ->
               GlobalConfig = globalConfig;
               LocalConfigs = localConfigs;
               OutStream = out
+              EvalHistory = []
               Custom = Map.empty}
 
     return! loop st []

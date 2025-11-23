@@ -44,11 +44,13 @@ let parseOpenDirective =
     .>> spaces .>> eof
     |> runParser
 
-let mkParseHelp names =
+let mkParseSingleArg names =
     spaces >>. pchar '#' >>. (names |> Seq.map pstring |> choice) >>. notFollowedBy ident
     >>. spaces >>. (dotIdent <|> quotedString)
     .>> spaces .>> eof
     |> runParser
 
-let parseHelpDirective = mkParseHelp ["help"; "h"]
-let parseHtypeDirective = mkParseHelp ["htype"]
+let parseHelpDirective = mkParseSingleArg ["help"; "h"]
+let parseHtypeDirective = mkParseSingleArg ["htype"]
+let parseSaveDirective = mkParseSingleArg ["save"]
+let parseRestoreDirective = mkParseSingleArg ["restore"]
