@@ -4,7 +4,7 @@ open Expecto
 open FSharp.Compiler.Text
 open FSharp.Compiler.Tokenization
 
-open FsiX.SyntaxHighlighting
+open FsiX.Features.SyntaxHighlighting
 
 #nowarn "0057"
 
