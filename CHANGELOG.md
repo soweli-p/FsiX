@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.1.1] - 2025-12-05
+
+### Changed
+
+- Various fixes regarding new lines in configs and parsing.
+- fsix-daemon released!
+  - Uses json-rpc for communication.
+  - Supports autocompletion and diagnostics, and all other fsix features.
+  - Has separate config named `daemon.fsx`.
+  - Is used in [fsix-vscode](https://github.com/soweli-p/fsix-vscode) (will be released soon).
+
+
 ## [0.1.0] - 2025-11-22
 
 ### Changed
