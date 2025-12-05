@@ -9,7 +9,8 @@
         <Compile Include="Args.fs"/>
         <Compile Include="Utils.fs"/>
         <Compile Include="ProjectLoading.fs"/>
-        <Compile Include="AutoCompletion.fs" />
+        <Compile Include="Features\AutoCompletion.fs" />
+        <Compile Include="Features\Diagnostics.fs" />
         <Compile Include="AppState.fs"/>
         <Compile Include="Middleware\ComputationExpression.fs" />
         <Compile Include="Middleware\Directives.fs" />

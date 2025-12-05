@@ -38,7 +38,6 @@ module AutoCompletionMapping =
 type FsiCallBacks(app: AppActor) =
     inherit PrettyPrompt.PromptCallbacks()
 
-    override _.ShouldOpenCompletionWindowAsync (text: string, caret: int, keyPress: PrettyPrompt.Consoles.KeyPress, cancellationToken: System.Threading.CancellationToken): System.Threading.Tasks.Task<bool> = task { return true }
     override _.GetCompletionItemsAsync(text, caret, spanToBeReplaced, _) =
         task {
             let typedWord = text.Substring(spanToBeReplaced.Start, spanToBeReplaced.Length)

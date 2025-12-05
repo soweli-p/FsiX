@@ -10,7 +10,7 @@ type CompletionItem = {
   Description: string option
 }
 
-let mapToRpcCompletion (i: FsiX.Features.AutoCompletion.CompletionItem) =
+let mapToRpcCompletion (i: Features.AutoCompletion.CompletionItem) =
   let description = 
     i.GetDescription
     |> Option.map (fun fn -> fn () |> Seq.map _.Text |> String.concat "")

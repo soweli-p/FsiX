@@ -20,6 +20,22 @@ module Configuration =
       return defaultConfig
   }
 
+
+open System
+let captureStdoutMiddleware next (request: AppState.EvalRequest, st) =
+  let origOut = stdout
+  let origErr = stderr
+  let sout = new StringWriter()
+  Console.SetOut sout
+  Console.SetError sout
+  let (response: AppState.EvalResponse), st = next (request, st)
+  Console.SetOut origOut
+  Console.SetError origErr
+  let newMetadata =
+    response.Metadata
+    |> Map.add "stdout" (sout.ToString())
+  {response with Metadata = newMetadata}, st
+
 let startAndInitActor logger args = task {
   let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
   let appActor =
@@ -30,6 +46,7 @@ let startAndInitActor logger args = task {
     Directives.OpenDirective.openDirectiveMiddleware
     ComputationExpression.compExprMiddleware
     HotReloading.hotReloadingMiddleware
+    captureStdoutMiddleware
   ]
   do! appActor.PostAndAsyncReply(fun r -> AppState.AddMiddleware (middleware, r))
 

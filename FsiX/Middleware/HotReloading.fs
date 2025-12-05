@@ -2,21 +2,10 @@ module FsiX.Middleware.HotReloading
 open System
 open System.Reflection
 
-open FsiX
 open FsiX.ProjectLoading
 open FsiX.Utils
 open FsiX.AppState
 
-
-//todo 
-//load all methods, put them in hash by name
-//also include their path when it's in modules
-//and return type & args
-//when user enters method with same name, type, try to reload it
-//if it finds multiple, check one for last opened file
-//otherwise give warming
-//if none found with same type, give hint it's not possible to overload types
-//otherwise print nothing
 
 type Method = {
   MethodInfo: MethodInfo
@@ -110,9 +99,9 @@ let handleNewAsmFromRepl (logger: ILogger) (asm: Assembly) (st: State) =
       )
     |> Seq.toList
   for methodToReplace, newMethod in replacementPairs do
-      logger.LogDebug <| "Updating method" + methodToReplace.FullName
+      logger.LogDebug <| "Updating method " + methodToReplace.FullName
       detourMethod methodToReplace.MethodInfo newMethod.MethodInfo
-  {st with LastAssembly = Some asm}, List.map (snd >> _.FullName) replacementPairs
+  {st with LastAssembly = Some asm}, List.map (fst >> _.FullName) replacementPairs
 
 
 let getOpenModules replCode st = 
@@ -141,7 +130,7 @@ let hotReloadingMiddleware next (request, st: AppState) =
   | {Args = m} when shouldRunHotReload m ->
       let response, st = next (request, st)
       match response.EvaluationResult with 
-      | Result.Error _ -> response, st
+      | Error _ -> response, st
       | Ok _ ->
       let asm = st.Session.DynamicAssemblies |> Array.last
       let reloadingSt, updatedMethods =

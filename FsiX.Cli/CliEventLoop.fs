@@ -8,6 +8,7 @@ open System.Threading
 
 open FsiX.Cli.Logging
 open FsiX.Cli.PrettyPromptCallbacks
+open FsiX.Features
 
 
 let startActor useAsp args = task {
@@ -34,7 +35,7 @@ let loadConfiguration actor = task {
   let! config = Configuration.loadGlobalConfig ()
   let! {EvaluationResult = r} = runSimpleEval actor config CancellationToken.None
   match r with 
-  | Result.Error ex -> cliLogger.LogWarning <| ex.ToString()
+  | Error ex -> cliLogger.LogWarning <| ex.ToString()
   | Ok _ -> ()
 
   let! promptConfig = actor.PostAndAsyncReply(fun r -> Command.GetBoundValue("promptConfig", r))
@@ -65,13 +66,13 @@ let runCliEventLoop useAsp args () = task {
             let! response = runSimpleEval appActor userLine.Text userLine.CancellationToken
             for d in response.Diagnostics do
                 match d.Severity with
-                | Info -> cliLogger.LogInfo d.Message
-                | Hidden -> cliLogger.LogDebug d.Message
-                | Warning -> cliLogger.LogWarning d.Message
-                | Error -> cliLogger.LogError d.Message
+                | Diagnostics.Info -> cliLogger.LogInfo d.Message
+                | Diagnostics.Hidden -> cliLogger.LogDebug d.Message
+                | Diagnostics.Warning -> cliLogger.LogWarning d.Message
+                | Diagnostics.Error -> cliLogger.LogError d.Message
             match response.EvaluationResult with 
             | Ok _ -> () //do nothing as TextWriterRecorder will print colored result
-            | Result.Error e -> cliLogger.LogError <| e.ToString()
+            | Error e -> cliLogger.LogError <| e.ToString()
 
       with _ -> ()
 

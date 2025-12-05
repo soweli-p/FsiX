@@ -48,7 +48,7 @@ module FsCompletions =
           {
             CompletionItem.DisplayText = declInfo.NameInList
             ReplacementText = declInfo.NameInCode
-            Kind = declInfo.Kind.ToString()
+            Kind = declInfo.Glyph.ToString()
             GetDescription = Some getDocs
           }
 

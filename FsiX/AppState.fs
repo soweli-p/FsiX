@@ -71,22 +71,10 @@ type AppState = {
   }
 
 
-type DiagnosticSeverity = Error | Hidden | Info | Warning
-type Diagnostic = {
-  Message: string
-  Subcategory: string
-  Severity: DiagnosticSeverity } with
-  static member mkDiagnostic (fsDiagnostic: FSharpDiagnostic) =
-    let mapSeverity = function
-      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Error -> Error
-      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Hidden -> Hidden
-      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Info -> Info
-      | FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Warning -> Warning
-    {Message = fsDiagnostic.Message; Severity = mapSeverity fsDiagnostic.Severity; Subcategory = fsDiagnostic.Subcategory}
 
 type EvalResponse = {
   EvaluationResult: Result<string, Exception>
-  Diagnostics: Diagnostic array
+  Diagnostics: Diagnostics.Diagnostic array
   EvaluatedCode: string
   Metadata: Map<string, objnull>
   }
@@ -100,6 +88,7 @@ type Command =
   | Autocomplete of text: string * caret: int * word: string * AsyncReplyChannel<list<AutoCompletion.CompletionItem>>
   | GetBoundValue of name: string * AsyncReplyChannel<obj Option>
   | AddMiddleware of Middleware list * AsyncReplyChannel<unit>
+  | GetDiagnostics of text: string * AsyncReplyChannel<Diagnostics.Diagnostic array>
   | EnableStdout
 
 
@@ -110,7 +99,7 @@ let wrapErrorMiddleware next (request, st) =
     next (request, st)
   with e -> 
     let errResponse = {
-      EvaluationResult = Result.Error <| new Exception("FsiXInternal error occured", e)
+      EvaluationResult = Error <| new Exception("FsiXInternal error occured", e)
       Diagnostics = [||]
       EvaluatedCode = ""
       Metadata = Map.empty
@@ -128,11 +117,11 @@ let evalFn token =
   fun ({Code = code; }, st) ->
     st.OutStream.StartRecording()
     let evalRes, diagnostics = st.Session.EvalInteractionNonThrowing(code, token)
-    let diagnostics = diagnostics |> Array.map Diagnostic.mkDiagnostic
+    let diagnostics = diagnostics |> Array.map Diagnostics.Diagnostic.mkDiagnostic
     let evalRes = 
       match evalRes with
       | Choice1Of2 _ -> Ok <| st.OutStream.StopRecording()
-      | Choice2Of2 ex -> Result.Error <| ex
+      | Choice2Of2 ex -> Error <| ex
 
     st.OutStream.StopRecording() |> ignore
     {EvaluationResult = evalRes; Diagnostics = diagnostics; Metadata = Map.empty; EvaluatedCode = code}, st
@@ -144,6 +133,10 @@ let mkAppStateActor (logger: ILogger) outStream useAsp sln =
     match cmd with 
     | Autocomplete (text, caret, word, reply) -> 
       let res = AutoCompletion.getCompletions st.Session text caret word
+      reply.Reply res
+      return! loop st middleware
+    | GetDiagnostics(text, reply) ->
+      let res = Diagnostics.getDiagnostics st.Session text
       reply.Reply res
       return! loop st middleware
     | EnableStdout -> 
