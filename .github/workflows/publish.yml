@@ -41,6 +41,7 @@ jobs:
         mkdir release
         cp FsiX.Cli/nupkg/*.nupkg release/
         cp FsiX.Cli.Web/nupkg/*.nupkg release/
+        cp FsiX.Daemon/nupkg/*.nupkg release/
       
         
     - name: Get version from tag
