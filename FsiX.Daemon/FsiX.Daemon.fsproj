@@ -3,6 +3,23 @@
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
+
+        <PackAsTool>true</PackAsTool>
+        <IsPackable>true</IsPackable>
+        <ToolCommandName>fsix-daemon</ToolCommandName>
+        <PackageOutputPath>./nupkg</PackageOutputPath>
+        <Version>0.1.1</Version>
+
+        <!-- NuGet config -->
+        <DevelopmentDependency>true</DevelopmentDependency>
+        <PackageId>FsiX.Daemon</PackageId>
+        <PackageTags>fsix-daemon</PackageTags>
+        <PackageProjectUrl>https://github.com/soweli-p/FsiX</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>Readme.md</PackageReadmeFile>
+        <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/soweli-p/FsiX</RepositoryUrl>
     </PropertyGroup>
 
     <ItemGroup>
@@ -11,6 +28,12 @@
         <Compile Include="ActorInit.fs"/>
         <Compile Include="Rpc.fs"/>
         <Compile Include="Program.fs"/>
+
+        <None Include="..\Readme.md">
+          <Pack>true</Pack>
+          <PackagePath>/</PackagePath>
+          <Link>Readme.md</Link>
+        </None>
     </ItemGroup>
 
     <ItemGroup>

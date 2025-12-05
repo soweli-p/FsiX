@@ -15,6 +15,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Has separate config named `daemon.fsx`.
   - Is used in [fsix-vscode](https://github.com/soweli-p/fsix-vscode) (will be released soon).
 
+### Breaking changes
+- Even since [0.1.0], old packages `FsiX` and `FsiX.Web` are deprecated. 
+    - Use new `FsiX.Cli` and `FsiX.Cli.Web` instead.
+    - If having any conflicts, remove old tools from your environment.
+- Config file is called `repl.fsx` now.
+
 
 ## [0.1.0] - 2025-11-22
 

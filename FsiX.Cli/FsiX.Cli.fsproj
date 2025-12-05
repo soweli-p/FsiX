@@ -7,7 +7,7 @@
         <IsPackable>true</IsPackable>
         <ToolCommandName>fsix</ToolCommandName>
         <PackageOutputPath>./nupkg</PackageOutputPath>
-        <Version>0.1.0</Version>
+        <Version>0.1.1</Version>
 
         <!-- NuGet config -->
         <PackageId>FsiX.Cli</PackageId>
