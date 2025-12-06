@@ -76,6 +76,12 @@ fsix #or fsix-web
 ```
 in the root dir of your project
 
+### 🎉 VS Code integration 🎉
+
+FsiX now has full integration with VS Code!
+You can download extension [here](https://open-vsx.org/extension/soweliP/fsixNotebook), or see sources in it's own [repo](https://github.com/soweli-p/fsix-vscode).
+
+
 ### 🛠 Configuration
 
    There is configuration file in `~/.config/fsix/repl.fsx` if you are on GNU/Linux and `%appdata%\fsix\repl.fsx` if you are on windows.
