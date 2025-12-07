@@ -14,7 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - fsix-daemon now uses tcp sockets instead of stdio:
   - If there was any output to stdout in separate thread, json-rpc connection used to break.
   - So now stdout is completely free and can be captured i.e for tracing.
-  - But, as first argument to fsix-daemon, you need to provide listen endpoint inf form like `127.0.0.1:9000`
+  - By default, it assigns automatically any available port on localhost and prints it to stdout.
+      - Or you can provide custom endpoint as first cli arg in form like: `127.0.0.1:9000`.
 
 ## [0.1.1] - 2025-12-05
 
