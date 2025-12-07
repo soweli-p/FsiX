@@ -113,20 +113,25 @@ let wrapErrorMiddleware next (request, st) =
 //the last m would evaluate the latest
 let buildPipeline (middleware : Middleware list) evalFn =
   List.foldBack (fun m next -> m next) middleware evalFn
-let evalFn token = 
+let evalFn (token: CancellationToken) = 
   fun ({Code = code; }, st) ->
     st.OutStream.StartRecording()
+    let thread = Thread.CurrentThread
+    token.Register(fun () -> thread.Interrupt()) |> ignore
     let evalRes, diagnostics = st.Session.EvalInteractionNonThrowing(code, token)
     let diagnostics = diagnostics |> Array.map Diagnostics.Diagnostic.mkDiagnostic
     let evalRes = 
       match evalRes with
       | Choice1Of2 _ -> Ok <| st.OutStream.StopRecording()
       | Choice2Of2 ex -> Error <| ex
-
     st.OutStream.StopRecording() |> ignore
     {EvaluationResult = evalRes; Diagnostics = diagnostics; Metadata = Map.empty; EvaluatedCode = code}, st
 
-let mkAppStateActor (logger: ILogger) outStream useAsp sln = 
+
+
+open System.Threading.Tasks
+open System.Threading
+let mkAppStateActor (logger: ILogger) (initCustomData: Map<string, obj>) outStream useAsp sln = 
   MailboxProcessor.Start(fun mailbox ->
   let rec loop st middleware = async {
     let! cmd = mailbox.Receive()
@@ -164,6 +169,7 @@ let mkAppStateActor (logger: ILogger) outStream useAsp sln =
     logger.LogInfo "Loading these projects: "
     for project in sln.Projects do
       logger.LogInfo project.ProjectFileName
+
     let fsiConfig = FsiEvaluationSession.GetDefaultConfiguration()
     let args = solutionToFsiArgs logger useAsp sln
 
@@ -187,7 +193,7 @@ let mkAppStateActor (logger: ILogger) outStream useAsp sln =
               Session = fsiSession; 
               Logger = logger
               OutStream = recorder
-              Custom = Map.empty}
+              Custom = initCustomData}
 
     return! loop st []
   }

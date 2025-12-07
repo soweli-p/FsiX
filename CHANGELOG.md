@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.1.2] - 2025-12-07
+
+### Changed
+
+- Better working of cancellation token when evaluation is stuck.
+- Hot reloading middleware used to fail in some projects like Avalonia.
+  - Issue is fixed if initialize it before start of interactive session, not after.
+- fsix-daemon now uses tcp sockets instead of stdio:
+  - If there was any output to stdout in separate thread, json-rpc connection used to break.
+  - So now stdout is completely free and can be captured i.e for tracing.
+  - But, as first argument to fsix-daemon, you need to provide listen endpoint inf form like `127.0.0.1:9000`
+
 ## [0.1.1] - 2025-12-05
 
 ### Changed

@@ -51,6 +51,8 @@ let mkReloadingState (sln: FsiX.ProjectLoading.Solution) =
     |> Seq.map (fun (methodName, methods) -> methodName, List.ofSeq methods)
     |> Map.ofSeq
   {Methods = methods; LastOpenModules = []; LastAssembly = None}
+
+let hotReloadingInitFunction sln = "hotReload", box <| mkReloadingState sln
   
 let getReloadingState (st: AppState) =
   st.Custom

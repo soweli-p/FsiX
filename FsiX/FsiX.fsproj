@@ -15,6 +15,7 @@
         <Compile Include="Middleware\ComputationExpression.fs" />
         <Compile Include="Middleware\Directives.fs" />
         <Compile Include="Middleware\HotReloading.fs" />
+        <Compile Include="ActorCreation.fs" />
     </ItemGroup>
 
     <ItemGroup>

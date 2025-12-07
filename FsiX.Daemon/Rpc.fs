@@ -24,18 +24,20 @@ module Procedures =
       new DiagnosticsDelegate(fun text -> appActor.PostAndAsyncReply(fun r -> GetDiagnostics(text, r)) |> Async.StartAsTask))
 
 module Events = 
-  let logError (rpc: JsonRpc) message = rpc.NotifyWithParameterObjectAsync("logging", {|Level = "error"; Message = message|})
+  let logError (rpc: JsonRpc) message = 
+    rpc.NotifyWithParameterObjectAsync("logging", {|Level = "error"; Message = message|})
   let logInfo (rpc: JsonRpc) message = rpc.NotifyWithParameterObjectAsync("logging", {|Level = "info"; Message = message|})
   let logDebug (rpc: JsonRpc) message = rpc.NotifyWithParameterObjectAsync("logging", {|Level = "debug"; Message = message|})
   let logWarning (rpc: JsonRpc) message = rpc.NotifyWithParameterObjectAsync("logging", {|Level = "warning"; Message = message|})
 
   open FsiX.Utils
+  open FsiX.Utils
   type RpcLogger(rpc: JsonRpc) = 
     interface ILogger with
-        member _.LogDebug s = logDebug rpc s |> ignore
-        member _.LogInfo s = logInfo rpc s |> ignore
-        member _.LogError s = logError rpc s |> ignore
-        member _.LogWarning s = logWarning rpc s |> ignore
+       member _.LogDebug s = logDebug rpc s |> ignore
+       member _.LogInfo s = logInfo rpc s |> ignore
+       member _.LogError s = logError rpc s |> ignore
+       member _.LogWarning s = logWarning rpc s |> ignore
 
   let initDone (rpc: JsonRpc) (initResult: Result<unit, System.Exception>) = 
     rpc.NotifyWithParameterObjectAsync("initialized", initResult)

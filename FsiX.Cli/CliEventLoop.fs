@@ -1,7 +1,5 @@
 module FsiX.Cli.CliEventLoop
 
-open FsiX.Middleware
-open FsiX.ProjectLoading
 open FsiX.AppState
 open FsiX
 open System.Threading
@@ -11,20 +9,8 @@ open FsiX.Cli.PrettyPromptCallbacks
 open FsiX.Features
 
 
-let startActor useAsp args = task {
-  let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
-  let appActor =
-    let sln = loadSolution cliLogger parsedArgs
-    AppState.mkAppStateActor cliLogger stdout useAsp sln
-  let middleware = [
-    Directives.viBindMiddleware
-    Directives.OpenDirective.openDirectiveMiddleware
-    ComputationExpression.compExprMiddleware
-    HotReloading.hotReloadingMiddleware
-  ]
-  do! appActor.PostAndAsyncReply(fun r -> AddMiddleware (middleware, r))
-  return appActor
-}
+let startActor useAsp args = ActorCreation.mkCommonActorArgs cliLogger useAsp args |> ActorCreation.createActor
+
 let runSimpleEval (actor: AppActor) code ct = task {
   let request = {EvalRequest.Code = code; Args = Map.empty}
   let! response = actor.PostAndAsyncReply(fun r -> Command.Eval(request, ct, r))

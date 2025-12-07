@@ -1,7 +1,5 @@
 module FsiX.Daemon.ActorInit
 
-open FsiX.ProjectLoading
-open FsiX.Middleware
 open FsiX
 open System.IO
 open System.Threading
@@ -22,33 +20,33 @@ module Configuration =
 
 
 open System
-let captureStdoutMiddleware next (request: AppState.EvalRequest, st) =
+let captureStdioMiddleware next (request: AppState.EvalRequest, st) =
   let origOut = stdout
   let origErr = stderr
+  let origIn = stdin
   let sout = new StringWriter()
+  let serr = new StringWriter()
   Console.SetOut sout
-  Console.SetError sout
+  Console.SetError serr
+  Console.SetIn StringReader.Null //todo add ability to provide input from vscode
   let (response: AppState.EvalResponse), st = next (request, st)
+  Console.SetIn origIn
   Console.SetOut origOut
   Console.SetError origErr
   let newMetadata =
     response.Metadata
     |> Map.add "stdout" (sout.ToString())
+    |> Map.add "stderr" (serr.ToString())
   {response with Metadata = newMetadata}, st
 
+
+
 let startAndInitActor logger args = task {
-  let parsedArgs = FsiX.Args.parser.ParseCommandLine(args).GetAllResults()
-  let appActor =
-    let sln = loadSolution logger parsedArgs
-    AppState.mkAppStateActor logger TextWriter.Null true sln
-  let middleware = [
-    Directives.viBindMiddleware
-    Directives.OpenDirective.openDirectiveMiddleware
-    ComputationExpression.compExprMiddleware
-    HotReloading.hotReloadingMiddleware
-    captureStdoutMiddleware
-  ]
-  do! appActor.PostAndAsyncReply(fun r -> AppState.AddMiddleware (middleware, r))
+  let actorArgs = ActorCreation.mkCommonActorArgs logger true args
+  let actorArgs =
+    { actorArgs with Middleware = ActorCreation.commonMiddleware @ [ captureStdioMiddleware ];
+                     OutStream = TextWriter.Null }
+  let! appActor = ActorCreation.createActor actorArgs
 
   let! config = Configuration.loadConfig ()
   let request = { AppState.EvalRequest.Code = config; AppState.EvalRequest.Args = Map.empty }
