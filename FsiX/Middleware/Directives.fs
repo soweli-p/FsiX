@@ -60,7 +60,7 @@ module OpenDirective =
       response, addOpenedFile st fileName
     | {Code = code} when code.StartsWith "#o" -> 
       let commandWords = code.Split " "
-      if commandWords.Length <= 2 then
+      if commandWords.Length < 2 then
         next (request, st)
       else
         match commandWords[0] with 

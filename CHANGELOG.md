@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Changed
 
 - Better working of cancellation token when evaluation is stuck.
+- Fixed #open directive which didnt work for less than 2 files.
 - Hot reloading middleware used to fail in some projects like Avalonia.
   - Issue is fixed if initialize it before start of interactive session, not after.
 - fsix-daemon now uses tcp sockets instead of stdio:

@@ -1,6 +1,5 @@
 ﻿open System
 open StreamJsonRpc
-open Nerdbank.Streams
 
 
 open FsiX.Daemon
