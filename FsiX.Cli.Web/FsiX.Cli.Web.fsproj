@@ -7,7 +7,7 @@
         <IsPackable>true</IsPackable>
         <ToolCommandName>fsix-web</ToolCommandName>
         <PackageOutputPath>./nupkg</PackageOutputPath>
-        <Version>0.1.1</Version>
+        <Version>0.1.2</Version>
 
         <!-- NuGet config -->
         <PackageId>FsiX.Cli.Web</PackageId>

@@ -8,7 +8,7 @@
         <IsPackable>true</IsPackable>
         <ToolCommandName>fsix-daemon</ToolCommandName>
         <PackageOutputPath>./nupkg</PackageOutputPath>
-        <Version>0.1.1</Version>
+        <Version>0.1.2</Version>
 
         <!-- NuGet config -->
         <DevelopmentDependency>true</DevelopmentDependency>
@@ -37,9 +37,9 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="StreamJsonRpc" Version="2.22.23" />
       <PackageReference Include="Argu" Version="6.2.5"/>
       <PackageReference Include="FSharp.SystemTextJson" Version="1.4.36"/>
+      <PackageReference Include="StreamJsonRpc" Version="2.22.23" />
       <PackageReference Include="Microsoft.NET.StringTools" Version="18.0.2" />
     </ItemGroup>
 
