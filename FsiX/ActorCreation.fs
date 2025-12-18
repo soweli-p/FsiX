@@ -22,12 +22,12 @@ type ActorArgs = {
   Logger: Utils.ILogger
   OutStream: TextWriter
   UseAsp: bool
-  Args: string[]
+  ParsedArgs: Args.Arguments list
 
 }
 
 let createActor a = task {
-  let parsedArgs = FsiX.Args.parser.ParseCommandLine(a.Args).GetAllResults()
+  let parsedArgs = a.ParsedArgs
   let sln = loadSolution a.Logger parsedArgs
   let customData = 
     a.InitFunctions
@@ -43,7 +43,7 @@ let mkCommonActorArgs logger useAsp args =
     Middleware = commonMiddleware
     InitFunctions = commonInitFunctions
     UseAsp = useAsp
-    Args = args
+    ParsedArgs = args
     OutStream = stdout
     Logger = logger
   } 

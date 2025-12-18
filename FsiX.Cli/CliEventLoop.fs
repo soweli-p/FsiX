@@ -9,7 +9,6 @@ open FsiX.Cli.PrettyPromptCallbacks
 open FsiX.Features
 
 
-let startActor useAsp args = ActorCreation.mkCommonActorArgs cliLogger useAsp args |> ActorCreation.createActor
 
 let runSimpleEval (actor: AppActor) code ct = task {
   let request = {EvalRequest.Code = code; Args = Map.empty}
@@ -35,9 +34,41 @@ let loadConfiguration actor = task {
     System.Environment.Exit 1
     return failwith "cannot happen"
 }
+
+
+module Daemon =
+  open System.Net.Sockets
+  open System.Net
+
+  open FsiX.Daemon
+  open FSharpPlus
+
+  let createActorWithDaemon actorArgs = ActorCreation.createActor {actorArgs with Middleware = actorArgs.Middleware @ [ActorInit.captureStdioMiddleware]}
+
+  let startTcp actor (addr: string) port = 
+    let addr = IPAddress.Parse addr
+    let listener = new TcpListener(addr, port)
+    Rpc.Tcp.mkJsonRpc listener |> Task.map (fun jsonRpc -> 
+      Rpc.Procedures.addProcedures actor jsonRpc
+      jsonRpc.StartListening()
+    )
+
+
 let runCliEventLoop useAsp args () = task {
-  let! appActor = startActor useAsp args
+  let args = Args.parser.ParseCommandLine args
+
+  let actorArgs = ActorCreation.mkCommonActorArgs cliLogger useAsp (args.GetAllResults())
+  let! appActor = 
+    match args.TryGetResult Args.Arguments.Daemon with
+    | None -> ActorCreation.createActor actorArgs
+    | Some _ -> Daemon.createActorWithDaemon actorArgs
+
   let! config = loadConfiguration appActor 
+
+  match args.TryGetResult Args.Arguments.Daemon with
+  | Some (addr, port) -> Daemon.startTcp appActor addr port |> ignore
+  | None -> ()
+
 
   let prompt =
       PrettyPrompt.Prompt(

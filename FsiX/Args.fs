@@ -14,6 +14,7 @@ type Arguments =
   | Sln of fileName: string
   | Proj of filename: string
   | [<Unique>] Dir of workingDirectory: string
+  | [<Unique>] Daemon of host: string * port: int
   | [<Alt("-r"); Sep(":")>]Reference of assemblyFileName: string
   | [<Sep(":")>] Load of fileName: string
   | [<Sep(":")>] Use of fileName: string
@@ -29,7 +30,11 @@ type Arguments =
           | Load _ -> "compiles the given source code at startup and loads the compiled F# constructs into the session."
           | Use _ -> "tells the interpreter to use the given file on startup as initial input. If it contains prompt configuration, it'd be used for this REPL."
           | Lib _ -> "specifies a directory to be searched for assemblies that are referenced."
-          | Other _ -> "Any other arguments which will be passed to fsi.exe"
+          | Other _ -> "Any other arguments which will be passed to fsi.exe"          
+          | Daemon _ -> "Starts daemon and lisening for json-rpc requests on given address and port."
 
 let errorHandler = ProcessExiter(colorizer = function ErrorCode.HelpText -> None | _ -> Some ConsoleColor.Red)
 let parser = ArgumentParser.Create<Arguments>(programName = "fsix", errorHandler=errorHandler)
+
+let parseArgs args = parser.ParseCommandLine(args).GetAllResults()
+

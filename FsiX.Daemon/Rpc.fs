@@ -42,10 +42,24 @@ module Events =
   let initDone (rpc: JsonRpc) (initResult: Result<unit, System.Exception>) = 
     rpc.NotifyWithParameterObjectAsync("initialized", initResult)
 
+module Tcp = 
+  open System
+  open System.Net.Sockets
+  open Json
+  let mkJsonRpc (listener: TcpListener) = task {
+    listener.Start()
+    Console.WriteLine $"Listening on: {listener.LocalEndpoint.ToString()}"
+    let! client = listener.AcceptTcpClientAsync()
+    let stream = client.GetStream()
+    let handler = new HeaderDelimitedMessageHandler(stream, mkJsonFormatter ())
+    return new JsonRpc(handler)
+  }
+
 
 open Events
 open Procedures
-let startAndInitRpc args (rpc: JsonRpc) =
+
+let createActorAndStartRpc args (rpc: JsonRpc) =
   let logger = new RpcLogger(rpc)
   let actor = startAndInitActor logger args |> _.GetAwaiter() |> _.GetResult()
   match actor with 
