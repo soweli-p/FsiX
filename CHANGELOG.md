@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
-## [0.1.2] - 2025-12-07
+## [0.1.2] - 2025-12-18
 
 ### Changed
 
@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - So now stdout is completely free and can be captured i.e for tracing.
   - By default, it assigns automatically any available port on localhost and prints it to stdout.
       - Or you can provide custom endpoint as first cli arg in form like: `127.0.0.1:9000`.
+- You  can have fsix-daemon in regular cli tool too!
+  - Just add `--daemon port addr` argument to `FsiX.Cli` or `FsiX.Cli.Web`
 
 ## [0.1.1] - 2025-12-05
 
