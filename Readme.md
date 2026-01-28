@@ -62,11 +62,11 @@ https://github.com/user-attachments/assets/fb14365c-758a-4603-b729-94e2eebe006d
 
 If your project uses regular .NET SDK:
 ```
-dotnet tool install --global fsix
+dotnet tool install --global FsiX.Cli
 ```
 Or, if it uses Asp net core sdk:
 ```
-dotnet tool install --global fsix.web
+dotnet tool install --global FsiX.Cli.Web
 ```
 
 Then, just run
