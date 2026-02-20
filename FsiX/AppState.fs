@@ -184,6 +184,7 @@ let mkAppStateActor (logger: ILogger) (initCustomData: Map<string, obj>) outStre
             outStream,
             collectible = true
         )
+    fsiSession.AddBoundValue("fsi", Settings.fsi)
     for fileName in sln.StartupFiles do
       logger.LogInfo $"Loading {fileName}"
       let! fileContents = File.ReadAllTextAsync fileName |> Async.AwaitTask
