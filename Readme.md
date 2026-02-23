@@ -62,11 +62,11 @@ https://github.com/user-attachments/assets/fb14365c-758a-4603-b729-94e2eebe006d
 
 If your project uses regular .NET SDK:
 ```
-dotnet tool install --global fsix
+dotnet tool install --global FsiX.Cli
 ```
 Or, if it uses Asp net core sdk:
 ```
-dotnet tool install --global fsix.web
+dotnet tool install --global FsiX.Cli.Web
 ```
 
 Then, just run
@@ -86,7 +86,6 @@ You can download extension [here](https://open-vsx.org/extension/soweliP/fsixNot
 
    There is configuration file in `~/.config/fsix/repl.fsx` if you are on GNU/Linux and `%appdata%\fsix\repl.fsx` if you are on windows.
    It's basically just an F# script which is being run on repl start, which has to contain `replConfig` object with prompt configuration.
-   FsiX will also load on start `.repl.fsix` file if it's present in current dir.
 
 ### 📌 Future features
 - fsix-daemon service which will use json-rpc protocol to communicate with any repl frontend
