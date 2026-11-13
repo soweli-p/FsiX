@@ -8,7 +8,7 @@
         <IsPackable>true</IsPackable>
         <ToolCommandName>fsix-daemon</ToolCommandName>
         <PackageOutputPath>./nupkg</PackageOutputPath>
-        <Version>0.1.2</Version>
+        <Version>0.1.3</Version>
 
         <!-- NuGet config -->
         <DevelopmentDependency>true</DevelopmentDependency>
